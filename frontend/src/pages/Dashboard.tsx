@@ -184,7 +184,7 @@ export default function Dashboard() {
               <h3 className="font-semibold mb-4">Доля выручки по каналу продаж</h3>
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={byChannel} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}>
+                  <Pie data={byChannel} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${((percent ?? 0)*100).toFixed(0)}%`}>
                     {byChannel.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
                   <Tooltip formatter={(v: any) => `$${Number(v).toLocaleString()}`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
