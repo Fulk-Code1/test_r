@@ -5,10 +5,9 @@ import { verifyToken } from '../lib/jwt'
 
 const router = Router()
 
-// Middleware auth
-function authMiddleware(req: any, res: Response, next: any) {
+function authMiddleware(req: Request & { user?: unknown }, res: Response, next: () => void) {
   const auth = req.headers.authorization
-  if (!auth) return res.status(401).json({ error: 'No token' })
+  if (!auth) { res.status(401).json({ error: 'No token' }); return }
   try {
     req.user = verifyToken(auth.replace('Bearer ', ''))
     next()
@@ -17,11 +16,13 @@ function authMiddleware(req: any, res: Response, next: any) {
   }
 }
 
+const parse = (v: string) => parseFloat((v || '0').replace(/,/g, ''))
+const parseInt2 = (v: string) => parseInt((v || '0').replace(/,/g, ''), 10)
+
 router.post('/sync', authMiddleware, async (req: Request, res: Response) => {
   try {
     const rawData = await fetchSalesData()
-    
-    // Адаптируй названия колонок под свой датасет!
+
     const records = rawData.map(row => ({
       orderDate: new Date(row['Order Date'] || row['Date'] || Date.now()),
       region: row['Region'] || '',
@@ -29,27 +30,28 @@ router.post('/sync', authMiddleware, async (req: Request, res: Response) => {
       itemType: row['Item Type'] || '',
       salesChannel: row['Sales Channel'] || '',
       orderPriority: row['Order Priority'] || '',
-      unitsSold: parseInt(row['Units Sold'] || '0'),
-      unitPrice: parseFloat(row['Unit Price'] || '0'),
-      unitCost: parseFloat(row['Unit Cost'] || '0'),
-      totalRevenue: parseFloat(row['Total Revenue'] || '0'),
-      totalCost: parseFloat(row['Total Cost'] || '0'),
-      totalProfit: parseFloat(row['Total Profit'] || '0'),
+      unitsSold: parseInt2(row['Units Sold']),
+      unitPrice: parse(row['Unit Price']),
+      unitCost: parse(row['Unit Cost']),
+      totalRevenue: parse(row['Total Revenue']),
+      totalCost: parse(row['Total Cost']),
+      totalProfit: parse(row['Total Profit']),
     }))
 
     await prisma.saleRecord.deleteMany({})
     await prisma.saleRecord.createMany({ data: records })
-    
+
     await prisma.syncLog.create({
       data: { rowsCount: records.length, status: 'success' }
     })
-    
+
     res.json({ message: 'Synced', count: records.length })
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Unknown error'
     await prisma.syncLog.create({
-      data: { rowsCount: 0, status: 'error', message: e.message }
+      data: { rowsCount: 0, status: 'error', message }
     })
-    res.status(500).json({ error: e.message })
+    res.status(500).json({ error: message })
   }
 })
 

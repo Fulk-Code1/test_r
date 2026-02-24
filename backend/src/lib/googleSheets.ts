@@ -12,7 +12,7 @@ export async function fetchSalesData() {
   
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: 'Sales_Data!A:M', // подстрой под свои колонки
+    range: 'Sales_Data!A:N', // подстрой под свои колонки
   })
   
   const rows = response.data.values || []
