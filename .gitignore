@@ -1,2 +1,9 @@
 backend/service-account.json
 SPREADSHEET_ID=1pLlX5p2rcySd49uckqMvxJq13xrD99goMDv1XiCKV5I
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
