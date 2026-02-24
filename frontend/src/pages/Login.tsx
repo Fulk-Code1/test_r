@@ -25,7 +25,7 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
       <div className="bg-gray-800 p-8 rounded-xl shadow-xl w-full max-w-md">
-        <h1 className="text-2xl font-bold text-white mb-6 text-center">📊 Sales Dashboard</h1>
+        <h1 className="text-2xl font-bold text-white mb-6 text-center">Sales Dashboard</h1>
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
           {error && (
             <div className="bg-red-500/20 text-red-400 p-3 rounded-lg text-sm">{error}</div>

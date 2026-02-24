@@ -90,14 +90,14 @@ export default function Dashboard() {
       {/* Navbar */}
       <nav className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">📊</span>
+          <span className="text-2xl"></span>
           <h1 className="text-xl font-bold">Sales Dashboard</h1>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-gray-400 text-sm">👤 {user.name}</span>
           <button onClick={handleSync} disabled={syncing}
             className="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition">
-            {syncing ? '⟳ Синхронизация...' : '🔄 Sync Google Sheets'}
+            {syncing ? '⟳ Синхронизация...' : 'Sync Google Sheets'}
           </button>
           <button onClick={logout} className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">
             Выйти
@@ -110,14 +110,14 @@ export default function Dashboard() {
         {kpi && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Общая выручка', value: fmt(kpi.totalRevenue), icon: '💰', color: 'blue' },
-              { label: 'Общая прибыль', value: fmt(kpi.totalProfit), icon: '📈', color: 'green' },
-              { label: 'Маржинальность', value: `${kpi.profitMargin.toFixed(1)}%`, icon: '🎯', color: 'purple' },
-              { label: 'Всего заказов', value: kpi.totalOrders.toLocaleString(), icon: '📦', color: 'orange' },
-              { label: 'Продано единиц', value: kpi.totalUnitsSold.toLocaleString(), icon: '🛒', color: 'cyan' },
-              { label: 'Ср. чек', value: fmt(kpi.avgOrderValue), icon: '💳', color: 'pink' },
-              { label: 'Общие затраты', value: fmt(kpi.totalCost), icon: '💸', color: 'red' },
-              { label: 'Чистая прибыль', value: fmt(kpi.totalProfit), icon: '✅', color: 'teal' },
+              { label: 'Общая выручка', value: fmt(kpi.totalRevenue), color: 'blue' },
+              { label: 'Общая прибыль', value: fmt(kpi.totalProfit), color: 'green' },
+              { label: 'Маржинальность', value: `${kpi.profitMargin.toFixed(1)}%`, color: 'purple' },
+              { label: 'Всего заказов', value: kpi.totalOrders.toLocaleString(),color: 'orange' },
+              { label: 'Продано единиц', value: kpi.totalUnitsSold.toLocaleString(), color: 'cyan' },
+              { label: 'Ср. чек', value: fmt(kpi.avgOrderValue), color: 'pink' },
+              { label: 'Общие затраты', value: fmt(kpi.totalCost), color: 'red' },
+              { label: 'Чистая прибыль', value: fmt(kpi.totalProfit), color: 'teal' },
             ].map((k, i) => (
               <div key={i} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
                 <div className="flex justify-between items-start">
@@ -125,7 +125,6 @@ export default function Dashboard() {
                     <p className="text-gray-400 text-xs">{k.label}</p>
                     <p className="text-2xl font-bold mt-1">{k.value}</p>
                   </div>
-                  <span className="text-2xl">{k.icon}</span>
                 </div>
               </div>
             ))}
@@ -137,7 +136,7 @@ export default function Dashboard() {
           {['overview', 'breakdown', 'table'].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === tab ? 'bg-blue-600' : 'bg-gray-800 hover:bg-gray-700'}`}>
-              {tab === 'overview' ? '📈 Тренды' : tab === 'breakdown' ? '📊 Разбивка' : '📋 Таблица'}
+              {tab === 'overview' ? 'Тренды' : tab === 'breakdown' ? ' Разбивка' : ' Таблица'}
             </button>
           ))}
         </div>
@@ -212,7 +211,7 @@ export default function Dashboard() {
           <div className="bg-gray-800 rounded-xl border border-gray-700">
             <div className="p-4 border-b border-gray-700 flex gap-3">
               <input
-                type="text" placeholder="🔍 Поиск по региону, стране, товару..."
+                type="text" placeholder="Поиск по региону, стране, товару..."
                 value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
                 className="flex-1 bg-gray-700 text-white rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
