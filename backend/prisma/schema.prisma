@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("viewer")
+  createdAt DateTime @default(now())
+}
+
+model SaleRecord {
+  id           Int      @id @default(autoincrement())
+  orderDate    DateTime
+  region       String
+  country      String
+  itemType     String
+  salesChannel String
+  orderPriority String
+  unitsSold    Int
+  unitPrice    Float
+  unitCost     Float
+  totalRevenue Float
+  totalCost    Float
+  totalProfit  Float
+  syncedAt     DateTime @default(now())
+  
+  @@index([orderDate])
+  @@index([region])
+  @@index([itemType])
+}
+
+model SyncLog {
+  id        Int      @id @default(autoincrement())
+  syncedAt  DateTime @default(now())
+  rowsCount Int
+  status    String
+  message   String?
+}
