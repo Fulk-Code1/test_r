@@ -17,7 +17,7 @@ services:
       retries: 5
 
   backend:
-    build: ./backend
+    image: denismml/sales-dashboard-backend:latest
     restart: always
     depends_on:
       postgres:
@@ -25,13 +25,13 @@ services:
     environment:
       DATABASE_URL: postgresql://salesuser:salespass@postgres:5432/salesdb
       JWT_SECRET: your-super-secret-key-change-this
-      SPREADSHEET_ID: ${SPREADSHEET_ID}
+      SPREADSHEET_ID: 1RdPvnURqu-Nto4w1vnV_tkjivXRQpxVeh0kKBg0KRqg
       NODE_ENV: production
     volumes:
-      - ./backend/service-account.json:/app/service-account.json:ro
+      - ./service-account.json:/app/service-account.json:ro
 
   frontend:
-    build: ./frontend
+    image: denismml/sales-dashboard-frontend:latest
     restart: always
     depends_on:
       - backend
