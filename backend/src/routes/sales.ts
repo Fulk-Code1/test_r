@@ -1,12 +1,12 @@
-import { Router, Response } from 'express'
+import { Router, Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
 import { verifyToken } from '../lib/jwt'
 
 const router = Router()
 
-function authMiddleware(req: any, res: Response, next: any) {
+function authMiddleware(req: Request & { user?: unknown }, res: Response, next: () => void) {
   const auth = req.headers.authorization
-  if (!auth) return res.status(401).json({ error: 'No token' })
+  if (!auth) { res.status(401).json({ error: 'No token' }); return }
   try {
     req.user = verifyToken(auth.replace('Bearer ', ''))
     next()
@@ -15,101 +15,89 @@ function authMiddleware(req: any, res: Response, next: any) {
   }
 }
 
-// Сводная статистика (KPI)
-router.get('/kpi', authMiddleware, async (req: any, res: Response) => {
+router.get('/kpi', authMiddleware, async (req: Request, res: Response) => {
+  const { year } = req.query
+  const where = year ? { year: parseInt(year as string) } : {}
   const agg = await prisma.saleRecord.aggregate({
-    _sum: { totalRevenue: true, totalCost: true, totalProfit: true, unitsSold: true },
-    _count: true,
+    where,
+    _sum: { revenue: true, quantity: true, checks: true },
+    _count: { id: true },
   })
-  const avgOrderValue = agg._count > 0 
-    ? (agg._sum.totalRevenue || 0) / agg._count 
-    : 0
-  const profitMargin = (agg._sum.totalRevenue || 0) > 0
-    ? ((agg._sum.totalProfit || 0) / (agg._sum.totalRevenue || 0)) * 100
-    : 0
-    
-  res.json({
-    totalRevenue: agg._sum.totalRevenue || 0,
-    totalCost: agg._sum.totalCost || 0,
-    totalProfit: agg._sum.totalProfit || 0,
-    totalOrders: agg._count,
-    totalUnitsSold: agg._sum.unitsSold || 0,
-    avgOrderValue,
-    profitMargin,
-  })
+  const totalRevenue = agg._sum.revenue || 0
+  const totalQuantity = agg._sum.quantity || 0
+  const totalChecks = agg._sum.checks || 0
+  const avgRevPerCheck = totalChecks > 0 ? totalRevenue / totalChecks : 0
+  res.json({ totalRevenue, totalQuantity, totalChecks, avgRevPerCheck, recordCount: agg._count.id })
 })
 
-// Прибыль по регионам
-router.get('/by-region', authMiddleware, async (req: any, res: Response) => {
+router.get('/by-year', authMiddleware, async (req: Request, res: Response) => {
   const data = await prisma.saleRecord.groupBy({
-    by: ['region'],
-    _sum: { totalRevenue: true, totalProfit: true },
-    _count: true,
+    by: ['year'],
+    _sum: { revenue: true, quantity: true, checks: true },
+    orderBy: { year: 'asc' },
   })
-  res.json(data)
+  res.json(data.map(d => ({ year: d.year, revenue: d._sum.revenue, quantity: d._sum.quantity, checks: d._sum.checks })))
 })
 
-// По категории товара
-router.get('/by-item', authMiddleware, async (req: any, res: Response) => {
+router.get('/by-store', authMiddleware, async (req: Request, res: Response) => {
+  const { year } = req.query
+  const where = year ? { year: parseInt(year as string) } : {}
   const data = await prisma.saleRecord.groupBy({
-    by: ['itemType'],
-    _sum: { totalRevenue: true, totalProfit: true, unitsSold: true },
-    orderBy: { _sum: { totalRevenue: 'desc' } },
+    by: ['store'],
+    where,
+    _sum: { revenue: true, quantity: true, checks: true },
+    orderBy: { _sum: { revenue: 'desc' } },
   })
-  res.json(data)
+  res.json(data.map(d => ({ store: d.store, revenue: d._sum.revenue, quantity: d._sum.quantity, checks: d._sum.checks })))
 })
 
-// По каналу продаж
-router.get('/by-channel', authMiddleware, async (req: any, res: Response) => {
+router.get('/trend', authMiddleware, async (req: Request, res: Response) => {
+  const { year } = req.query
+  const where = year ? { year: parseInt(year as string) } : {}
   const data = await prisma.saleRecord.groupBy({
-    by: ['salesChannel'],
-    _sum: { totalRevenue: true, totalProfit: true },
-    _count: true,
+    by: ['year', 'month'],
+    where,
+    _sum: { revenue: true, quantity: true, checks: true },
+    orderBy: [{ year: 'asc' }, { month: 'asc' }],
   })
-  res.json(data)
+  const months = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
+  res.json(data.map(d => ({
+    label: `${months[d.month-1]} ${d.year}`,
+    year: d.year,
+    month: d.month,
+    revenue: d._sum.revenue,
+    quantity: d._sum.quantity,
+    checks: d._sum.checks,
+  })))
 })
 
-// Тренд по месяцам (для line chart)
-router.get('/trend', authMiddleware, async (req: any, res: Response) => {
-  const records = await prisma.saleRecord.findMany({
-    select: { orderDate: true, totalRevenue: true, totalProfit: true },
-    orderBy: { orderDate: 'asc' },
-  })
-  
-  const monthly: Record<string, { revenue: number; profit: number }> = {}
-  records.forEach(r => {
-    const key = `${r.orderDate.getFullYear()}-${String(r.orderDate.getMonth()+1).padStart(2,'0')}`
-    if (!monthly[key]) monthly[key] = { revenue: 0, profit: 0 }
-    monthly[key].revenue += r.totalRevenue
-    monthly[key].profit += r.totalProfit
-  })
-  
-  res.json(Object.entries(monthly).map(([month, v]) => ({ month, ...v })))
-})
-
-// Таблица с пагинацией
-router.get('/table', authMiddleware, async (req: any, res: Response) => {
+router.get('/table', authMiddleware, async (req: Request, res: Response) => {
   const page = parseInt(req.query.page as string) || 1
-  const limit = parseInt(req.query.limit as string) || 20
+  const limit = parseInt(req.query.limit as string) || 15
   const search = req.query.search as string || ''
-  
-  const where = search ? {
-    OR: [
-      { region: { contains: search, mode: 'insensitive' as any } },
-      { country: { contains: search, mode: 'insensitive' as any } },
-      { itemType: { contains: search, mode: 'insensitive' as any } },
-    ]
-  } : {}
-  
-  const [total, records] = await Promise.all([
+  const year = req.query.year ? parseInt(req.query.year as string) : undefined
+  const where: any = {}
+  if (search) where.store = { contains: search, mode: 'insensitive' }
+  if (year) where.year = year
+  const [total, data] = await Promise.all([
     prisma.saleRecord.count({ where }),
     prisma.saleRecord.findMany({
-      where, skip: (page-1)*limit, take: limit,
-      orderBy: { orderDate: 'desc' }
+      where,
+      orderBy: [{ year: 'desc' }, { month: 'desc' }, { store: 'asc' }],
+      skip: (page - 1) * limit,
+      take: limit,
     })
   ])
-  
-  res.json({ records, total, page, pages: Math.ceil(total/limit) })
+  res.json({ data, total, page, pages: Math.ceil(total / limit) })
+})
+
+router.get('/years', authMiddleware, async (req: Request, res: Response) => {
+  const data = await prisma.saleRecord.findMany({
+    select: { year: true },
+    distinct: ['year'],
+    orderBy: { year: 'asc' },
+  })
+  res.json(data.map(d => d.year))
 })
 
 export default router

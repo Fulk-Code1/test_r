@@ -16,41 +16,27 @@ function authMiddleware(req: Request & { user?: unknown }, res: Response, next: 
   }
 }
 
-const parse = (v: string) => parseFloat((v || '0').replace(/,/g, ''))
-const parseInt2 = (v: string) => parseInt((v || '0').replace(/,/g, ''), 10)
+const parseNum = (v: string) => parseFloat((v || '0').replace(/,/g, '.'))
+const parseIntVal = (v: string) => parseInt((v || '0').replace(/,/g, ''), 10)
 
 router.post('/sync', authMiddleware, async (req: Request, res: Response) => {
   try {
     const rawData = await fetchSalesData()
-
     const records = rawData.map(row => ({
-      orderDate: new Date(row['Order Date'] || row['Date'] || Date.now()),
-      region: row['Region'] || '',
-      country: row['Country'] || '',
-      itemType: row['Item Type'] || '',
-      salesChannel: row['Sales Channel'] || '',
-      orderPriority: row['Order Priority'] || '',
-      unitsSold: parseInt2(row['Units Sold']),
-      unitPrice: parse(row['Unit Price']),
-      unitCost: parse(row['Unit Cost']),
-      totalRevenue: parse(row['Total Revenue']),
-      totalCost: parse(row['Total Cost']),
-      totalProfit: parse(row['Total Profit']),
+      year: parseIntVal(row['Year']),
+      month: parseIntVal(row['Month']),
+      store: row['Store'] || '',
+      revenue: parseNum(row['Revenue']),
+      quantity: parseIntVal(row['Quantity']),
+      checks: parseIntVal(row['Checks']),
     }))
-
     await prisma.saleRecord.deleteMany({})
     await prisma.saleRecord.createMany({ data: records })
-
-    await prisma.syncLog.create({
-      data: { rowsCount: records.length, status: 'success' }
-    })
-
+    await prisma.syncLog.create({ data: { rowsCount: records.length, status: 'success' } })
     res.json({ message: 'Synced', count: records.length })
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error'
-    await prisma.syncLog.create({
-      data: { rowsCount: 0, status: 'error', message }
-    })
+    await prisma.syncLog.create({ data: { rowsCount: 0, status: 'error', message } })
     res.status(500).json({ error: message })
   }
 })
