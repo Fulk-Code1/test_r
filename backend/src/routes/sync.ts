@@ -16,7 +16,7 @@ function authMiddleware(req: Request & { user?: unknown }, res: Response, next: 
   }
 }
 
-const parseNum = (v: string) => parseFloat((v || '0').replace(/,/g, '.'))
+const parseNum = (v: string) => parseFloat((v || '0').replace(/,/g, ''))
 const parseIntVal = (v: string) => parseInt((v || '0').replace(/,/g, ''), 10)
 
 router.post('/sync', authMiddleware, async (req: Request, res: Response) => {
