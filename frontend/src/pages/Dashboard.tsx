@@ -202,7 +202,12 @@ export default function Dashboard() {
                     label={showLabels.storePie ? ({ payload, percent }) => `${payload.store} ${((percent ?? 0)*100).toFixed(0)}%` : false}>
                     {byStore.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
+                  <Tooltip
+  contentStyle={{ background: '#1f2937', border: '1px solid #374151' }}
+  formatter={(v: any) => [`${Number(v).toLocaleString()} MDL`, 'Выручка']}
+  labelStyle={{ color: '#ffffff' }}
+  itemStyle={{ color: '#ffffff' }}
+/>
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
