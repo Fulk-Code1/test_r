@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  LabelList
 } from 'recharts'
 
 const API = import.meta.env.VITE_API_URL || '/api'
@@ -14,6 +15,22 @@ function fmt(n: number) {
   if (n >= 1_000_000) return `$${(n/1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `$${(n/1_000).toFixed(0)}K`
   return `$${n.toFixed(0)}`
+}
+
+function fmtShort(n: number) {
+  if (n >= 1_000_000) return `${(n/1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n/1_000).toFixed(0)}K`
+  return `${n.toFixed(0)}`
+}
+
+function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
+  return (
+    <label className="flex items-center gap-2 text-gray-400 text-xs cursor-pointer select-none mt-3">
+      <input type="checkbox" checked={checked} onChange={onChange}
+        className="w-3.5 h-3.5 accent-blue-500 cursor-pointer" />
+      {label}
+    </label>
+  )
 }
 
 export default function Dashboard() {
@@ -34,6 +51,18 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
   const [years, setYears] = useState<number[]>([])
   const [selectedYear, setSelectedYear] = useState<string>('')
+
+  // Чекбоксы показа значений для каждого графика
+  const [showLabels, setShowLabels] = useState({
+    trend: false,
+    yearBar: false,
+    storePie: false,
+    storeBar: false,
+  })
+
+  const toggleLabel = (key: keyof typeof showLabels) => {
+    setShowLabels(prev => ({ ...prev, [key]: !prev[key] }))
+  }
 
   const fetchAll = useCallback(async () => {
     try {
@@ -127,7 +156,7 @@ export default function Dashboard() {
           {['overview', 'breakdown', 'table'].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === tab ? 'bg-blue-600' : 'bg-gray-800 hover:bg-gray-700'}`}>
-              {tab === 'overview' ? '📈 Тренды' : tab === 'breakdown' ? '📊 Разбивка' : '📋 Таблица'}
+              {tab === 'overview' ? 'Тренды' : tab === 'breakdown' ? 'Разбивка' : 'Таблица'}
             </button>
           ))}
         </div>
@@ -143,11 +172,17 @@ export default function Dashboard() {
                   <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => `$${(v/1000).toFixed(0)}K`} />
                   <Tooltip formatter={(v: any) => `$${Number(v).toLocaleString()}`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
                   <Legend />
-                  <Line type="monotone" dataKey="revenue" name="Выручка" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="checks" name="Чеки" stroke="#10b981" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="revenue" name="Выручка" stroke="#3b82f6" strokeWidth={2} dot={false}>
+                    {showLabels.trend && <LabelList dataKey="revenue" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 9, fill: '#93c5fd' }} />}
+                  </Line>
+                  <Line type="monotone" dataKey="checks" name="Чеки" stroke="#10b981" strokeWidth={2} dot={false}>
+                    {showLabels.trend && <LabelList dataKey="checks" position="bottom" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 9, fill: '#6ee7b7' }} />}
+                  </Line>
                 </LineChart>
               </ResponsiveContainer>
+              <Checkbox label="Показать значения" checked={showLabels.trend} onChange={() => toggleLabel('trend')} />
             </div>
+
             <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
               <h3 className="font-semibold mb-4">Выручка по годам</h3>
               <ResponsiveContainer width="100%" height={280}>
@@ -156,10 +191,16 @@ export default function Dashboard() {
                   <XAxis dataKey="year" stroke="#9ca3af" tick={{ fontSize: 11 }} />
                   <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => `$${(v/1000000).toFixed(1)}M`} />
                   <Tooltip formatter={(v: any) => `$${Number(v).toLocaleString()}`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
-                  <Bar dataKey="revenue" name="Выручка" fill="#3b82f6" radius={[4,4,0,0]} />
-                  <Bar dataKey="quantity" name="Кол-во" fill="#10b981" radius={[4,4,0,0]} />
+                  <Legend />
+                  <Bar dataKey="revenue" name="Выручка" fill="#3b82f6" radius={[4,4,0,0]}>
+                    {showLabels.yearBar && <LabelList dataKey="revenue" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: '#93c5fd' }} />}
+                  </Bar>
+                  <Bar dataKey="quantity" name="Кол-во" fill="#10b981" radius={[4,4,0,0]}>
+                    {showLabels.yearBar && <LabelList dataKey="quantity" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: '#6ee7b7' }} />}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
+              <Checkbox label="Показать значения" checked={showLabels.yearBar} onChange={() => toggleLabel('yearBar')} />
             </div>
           </div>
         )}
@@ -171,13 +212,16 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
                   <Pie data={byStore} dataKey="revenue" nameKey="store" cx="50%" cy="50%" outerRadius={100}
-                    label={({ payload, percent }) => `${payload?.store} ${((percent ?? 0)*100).toFixed(0)}%`}>
+                    label={showLabels.storePie ? ({ payload, percent }) => `${payload.store} ${((percent ?? 0)*100).toFixed(0)}%` : false}>
                     {byStore.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
                   <Tooltip formatter={(v: any) => `$${Number(v).toLocaleString()}`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
+                  <Legend />
                 </PieChart>
               </ResponsiveContainer>
+              <Checkbox label="Показать значения" checked={showLabels.storePie} onChange={() => toggleLabel('storePie')} />
             </div>
+
             <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
               <h3 className="font-semibold mb-4">Топ магазинов по выручке</h3>
               <ResponsiveContainer width="100%" height={280}>
@@ -186,9 +230,12 @@ export default function Dashboard() {
                   <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => `$${(v/1000).toFixed(0)}K`} />
                   <YAxis type="category" dataKey="store" stroke="#9ca3af" tick={{ fontSize: 10 }} width={70} />
                   <Tooltip formatter={(v: any) => `$${Number(v).toLocaleString()}`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
-                  <Bar dataKey="revenue" name="Выручка" fill="#8b5cf6" radius={[0,4,4,0]} />
+                  <Bar dataKey="revenue" name="Выручка" fill="#8b5cf6" radius={[0,4,4,0]}>
+                    {showLabels.storeBar && <LabelList dataKey="revenue" position="right" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: '#c4b5fd' }} />}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
+              <Checkbox label="Показать значения" checked={showLabels.storeBar} onChange={() => toggleLabel('storeBar')} />
             </div>
           </div>
         )}
