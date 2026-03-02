@@ -1,21 +1,9 @@
 import { Router, Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
-import { verifyToken } from '../lib/jwt'
 
 const router = Router()
 
-function authMiddleware(req: Request & { user?: unknown }, res: Response, next: () => void) {
-  const auth = req.headers.authorization
-  if (!auth) { res.status(401).json({ error: 'No token' }); return }
-  try {
-    req.user = verifyToken(auth.replace('Bearer ', ''))
-    next()
-  } catch {
-    res.status(401).json({ error: 'Invalid token' })
-  }
-}
-
-router.get('/kpi', authMiddleware, async (req: Request, res: Response) => {
+router.get('/kpi', async (req: Request, res: Response) => {
   const { year } = req.query
   const where = year ? { year: parseInt(year as string) } : {}
   const agg = await prisma.saleRecord.aggregate({
@@ -30,7 +18,7 @@ router.get('/kpi', authMiddleware, async (req: Request, res: Response) => {
   res.json({ totalRevenue, totalQuantity, totalChecks, avgRevPerCheck, recordCount: agg._count.id })
 })
 
-router.get('/by-year', authMiddleware, async (req: Request, res: Response) => {
+router.get('/by-year', async (req: Request, res: Response) => {
   const data = await prisma.saleRecord.groupBy({
     by: ['year'],
     _sum: { revenue: true, quantity: true, checks: true },
@@ -39,7 +27,7 @@ router.get('/by-year', authMiddleware, async (req: Request, res: Response) => {
   res.json(data.map(d => ({ year: d.year, revenue: d._sum.revenue, quantity: d._sum.quantity, checks: d._sum.checks })))
 })
 
-router.get('/by-store', authMiddleware, async (req: Request, res: Response) => {
+router.get('/by-store', async (req: Request, res: Response) => {
   const { year } = req.query
   const where = year ? { year: parseInt(year as string) } : {}
   const data = await prisma.saleRecord.groupBy({
@@ -51,7 +39,7 @@ router.get('/by-store', authMiddleware, async (req: Request, res: Response) => {
   res.json(data.map(d => ({ store: d.store, revenue: d._sum.revenue, quantity: d._sum.quantity, checks: d._sum.checks })))
 })
 
-router.get('/trend', authMiddleware, async (req: Request, res: Response) => {
+router.get('/trend', async (req: Request, res: Response) => {
   const { year } = req.query
   const where = year ? { year: parseInt(year as string) } : {}
   const data = await prisma.saleRecord.groupBy({
@@ -71,7 +59,7 @@ router.get('/trend', authMiddleware, async (req: Request, res: Response) => {
   })))
 })
 
-router.get('/table', authMiddleware, async (req: Request, res: Response) => {
+router.get('/table', async (req: Request, res: Response) => {
   const page = parseInt(req.query.page as string) || 1
   const limit = parseInt(req.query.limit as string) || 15
   const search = req.query.search as string || ''
@@ -91,7 +79,7 @@ router.get('/table', authMiddleware, async (req: Request, res: Response) => {
   res.json({ data, total, page, pages: Math.ceil(total / limit) })
 })
 
-router.get('/years', authMiddleware, async (req: Request, res: Response) => {
+router.get('/years', async (req: Request, res: Response) => {
   const data = await prisma.saleRecord.findMany({
     select: { year: true },
     distinct: ['year'],

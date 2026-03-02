@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -34,11 +33,6 @@ function Checkbox({ label, checked, onChange }: { label: string; checked: boolea
 }
 
 export default function Dashboard() {
-  const navigate = useNavigate()
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
-  const token = localStorage.getItem('token')!
-  const headers = { Authorization: `Bearer ${token}` }
-
   const [kpi, setKpi] = useState<any>(null)
   const [trend, setTrend] = useState<any[]>([])
   const [byStore, setByStore] = useState<any[]>([])
@@ -67,26 +61,28 @@ export default function Dashboard() {
     try {
       const yParam = selectedYear ? `?year=${selectedYear}` : ''
       const [kpiR, trendR, storeR, yearR, yearsR] = await Promise.all([
-        axios.get(`${API}/sales/kpi${yParam}`, { headers }),
-        axios.get(`${API}/sales/trend${yParam}`, { headers }),
-        axios.get(`${API}/sales/by-store${yParam}`, { headers }),
-        axios.get(`${API}/sales/by-year`, { headers }),
-        axios.get(`${API}/sales/years`, { headers }),
+        axios.get(`${API}/sales/kpi${yParam}`),
+        axios.get(`${API}/sales/trend${yParam}`),
+        axios.get(`${API}/sales/by-store${yParam}`),
+        axios.get(`${API}/sales/by-year`),
+        axios.get(`${API}/sales/years`),
       ])
       setKpi(kpiR.data)
       setTrend(trendR.data)
       setByStore(storeR.data)
       setYearTrend(yearR.data)
       setYears(yearsR.data)
-    } catch { navigate('/login') }
+    } catch { console.error('fetch error') }
   }, [selectedYear])
 
   const fetchTable = useCallback(async () => {
-    const res = await axios.get(`${API}/sales/table`, {
-      headers, params: { page, limit: 15, search, ...(selectedYear ? { year: selectedYear } : {}) }
-    })
-    setTable(res.data.data)
-    setTotal(res.data.total)
+    try {
+      const res = await axios.get(`${API}/sales/table`, {
+        params: { page, limit: 15, search, ...(selectedYear ? { year: selectedYear } : {}) }
+      })
+      setTable(res.data.data)
+      setTotal(res.data.total)
+    } catch { console.error('table error') }
   }, [page, search, selectedYear])
 
   useEffect(() => { fetchAll() }, [fetchAll])
@@ -95,7 +91,7 @@ export default function Dashboard() {
   const handleSync = async () => {
     setSyncing(true)
     try {
-      await axios.post(`${API}/sync`, {}, { headers })
+      await axios.post(`${API}/sync`)
       await fetchAll()
       await fetchTable()
       alert('Синхронизация прошла успешно!')
@@ -104,8 +100,6 @@ export default function Dashboard() {
     }
     setSyncing(false)
   }
-
-  const logout = () => { localStorage.clear(); navigate('/login') }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -122,16 +116,10 @@ export default function Dashboard() {
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-gray-400 text-sm">👤 {user.name}</span>
-          <button onClick={handleSync} disabled={syncing}
-            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition">
-            {syncing ? '⟳ Синхронизация...' : 'Sync Google Sheets'}
-          </button>
-          <button onClick={logout} className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">
-            Выйти
-          </button>
-        </div>
+        <button onClick={handleSync} disabled={syncing}
+          className="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition">
+          {syncing ? '⟳ Синхронизация...' : 'Sync Google Sheets'}
+        </button>
       </nav>
 
       <div className="p-6 space-y-6">

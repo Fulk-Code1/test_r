@@ -1,25 +1,13 @@
 import { Router, Request, Response } from 'express'
 import { fetchSalesData } from '../lib/googleSheets'
 import { prisma } from '../lib/prisma'
-import { verifyToken } from '../lib/jwt'
 
 const router = Router()
-
-function authMiddleware(req: Request & { user?: unknown }, res: Response, next: () => void) {
-  const auth = req.headers.authorization
-  if (!auth) { res.status(401).json({ error: 'No token' }); return }
-  try {
-    req.user = verifyToken(auth.replace('Bearer ', ''))
-    next()
-  } catch {
-    res.status(401).json({ error: 'Invalid token' })
-  }
-}
 
 const parseNum = (v: string) => parseFloat((v || '0').replace(/,/g, ''))
 const parseIntVal = (v: string) => parseInt((v || '0').replace(/,/g, ''), 10)
 
-router.post('/sync', authMiddleware, async (req: Request, res: Response) => {
+router.post('/sync', async (req: Request, res: Response) => {
   try {
     const rawData = await fetchSalesData()
     const records = rawData.map(row => ({
@@ -41,7 +29,7 @@ router.post('/sync', authMiddleware, async (req: Request, res: Response) => {
   }
 })
 
-router.get('/sync/logs', authMiddleware, async (req: Request, res: Response) => {
+router.get('/sync/logs', async (req: Request, res: Response) => {
   const logs = await prisma.syncLog.findMany({ orderBy: { syncedAt: 'desc' }, take: 10 })
   res.json(logs)
 })
