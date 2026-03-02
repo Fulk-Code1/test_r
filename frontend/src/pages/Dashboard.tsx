@@ -12,9 +12,9 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
 const MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
 
 function fmt(n: number) {
-  if (n >= 1_000_000) return `$${(n/1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `$${(n/1_000).toFixed(0)}K`
-  return `$${n.toFixed(0)}`
+  if (n >= 1_000_000) return `${(n/1_000_000).toFixed(1)}M MDL`
+  if (n >= 1_000) return `${(n/1_000).toFixed(0)}K MDL`
+  return `${n.toFixed(0)} MDL`
 }
 
 function fmtShort(n: number) {
@@ -52,7 +52,6 @@ export default function Dashboard() {
   const [years, setYears] = useState<number[]>([])
   const [selectedYear, setSelectedYear] = useState<string>('')
 
-  // Чекбоксы показа значений для каждого графика
   const [showLabels, setShowLabels] = useState({
     trend: false,
     yearBar: false,
@@ -169,8 +168,8 @@ export default function Dashboard() {
                 <LineChart data={trend}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 11 }} interval={Math.floor(trend.length / 10)} />
-                  <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => `$${(v/1000).toFixed(0)}K`} />
-                  <Tooltip formatter={(v: any) => `$${Number(v).toLocaleString()}`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
+                  <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}K`} />
+                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
                   <Legend />
                   <Line type="monotone" dataKey="revenue" name="Выручка" stroke="#3b82f6" strokeWidth={2} dot={false}>
                     {showLabels.trend && <LabelList dataKey="revenue" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 9, fill: '#93c5fd' }} />}
@@ -189,8 +188,8 @@ export default function Dashboard() {
                 <BarChart data={yearTrend}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="year" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-                  <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => `$${(v/1000000).toFixed(1)}M`} />
-                  <Tooltip formatter={(v: any) => `$${Number(v).toLocaleString()}`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
+                  <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000000).toFixed(1)}M`} />
+                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
                   <Legend />
                   <Bar dataKey="revenue" name="Выручка" fill="#3b82f6" radius={[4,4,0,0]}>
                     {showLabels.yearBar && <LabelList dataKey="revenue" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: '#93c5fd' }} />}
@@ -215,7 +214,7 @@ export default function Dashboard() {
                     label={showLabels.storePie ? ({ payload, percent }) => `${payload.store} ${((percent ?? 0)*100).toFixed(0)}%` : false}>
                     {byStore.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(v: any) => `$${Number(v).toLocaleString()}`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
+                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -227,9 +226,9 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={byStore} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => `$${(v/1000).toFixed(0)}K`} />
+                  <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}K`} />
                   <YAxis type="category" dataKey="store" stroke="#9ca3af" tick={{ fontSize: 10 }} width={70} />
-                  <Tooltip formatter={(v: any) => `$${Number(v).toLocaleString()}`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
+                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
                   <Bar dataKey="revenue" name="Выручка" fill="#8b5cf6" radius={[0,4,4,0]}>
                     {showLabels.storeBar && <LabelList dataKey="revenue" position="right" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: '#c4b5fd' }} />}
                   </Bar>
