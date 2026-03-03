@@ -19,9 +19,10 @@ model SystemField {
   id        Int            @id @default(autoincrement())
   key       String         @unique
   label     String
-  type      String
+  type      String         // fact | calculated
   formula   String?
-  dataType  String
+  dataType  String         // number | integer | percent
+  isCustom  Boolean        @default(false)  // пользовательские поля
   createdAt DateTime       @default(now())
   mappings  FieldMapping[]
 }
@@ -34,7 +35,6 @@ model FieldMapping {
   createdAt     DateTime    @default(now())
 }
 
-// Основная таблица данных — фиксированные колонки
 model SaleRecord {
   id          Int      @id @default(autoincrement())
   year        Int
@@ -44,6 +44,7 @@ model SaleRecord {
   quantity    Int      @default(0)
   checks      Int      @default(0)
   grossProfit Float    @default(0)
+  extraData   Json?    // пользовательские поля хранятся здесь
   syncedAt    DateTime @default(now())
 }
 
