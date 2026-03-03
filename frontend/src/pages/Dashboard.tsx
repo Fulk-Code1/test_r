@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  LabelList
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList
 } from 'recharts'
 
 const API = import.meta.env.VITE_API_URL || '/api'
@@ -15,18 +14,17 @@ function fmt(n: number) {
   if (n >= 1_000) return `${(n/1_000).toFixed(0)}K MDL`
   return `${n.toFixed(0)} MDL`
 }
-
 function fmtShort(n: number) {
   if (n >= 1_000_000) return `${(n/1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n/1_000).toFixed(0)}K`
   return `${n.toFixed(0)}`
 }
+function fmtPct(n: number) { return `${n.toFixed(1)}%` }
 
 function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
   return (
     <label className="flex items-center gap-2 text-gray-400 text-xs cursor-pointer select-none mt-3">
-      <input type="checkbox" checked={checked} onChange={onChange}
-        className="w-3.5 h-3.5 accent-blue-500 cursor-pointer" />
+      <input type="checkbox" checked={checked} onChange={onChange} className="w-3.5 h-3.5 accent-blue-500 cursor-pointer" />
       {label}
     </label>
   )
@@ -45,17 +43,8 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
   const [years, setYears] = useState<number[]>([])
   const [selectedYear, setSelectedYear] = useState<string>('')
-
-  const [showLabels, setShowLabels] = useState({
-    trend: false,
-    yearBar: false,
-    storePie: false,
-    storeBar: false,
-  })
-
-  const toggleLabel = (key: keyof typeof showLabels) => {
-    setShowLabels(prev => ({ ...prev, [key]: !prev[key] }))
-  }
+  const [showLabels, setShowLabels] = useState({ trend: false, yearBar: false, storePie: false, storeBar: false })
+  const toggleLabel = (key: keyof typeof showLabels) => setShowLabels(prev => ({ ...prev, [key]: !prev[key] }))
 
   const fetchAll = useCallback(async () => {
     try {
@@ -92,8 +81,7 @@ export default function Dashboard() {
     setSyncing(true)
     try {
       await axios.post(`${API}/sync`)
-      await fetchAll()
-      await fetchTable()
+      await fetchAll(); await fetchTable()
       alert('Синхронизация прошла успешно!')
     } catch (e: any) {
       alert('Ошибка: ' + (e.response?.data?.error || e.message))
@@ -107,33 +95,36 @@ export default function Dashboard() {
         <div className="flex items-center gap-3">
           <span className="text-2xl">📊</span>
           <h1 className="text-xl font-bold">Sales Dashboard</h1>
-          <select
-            value={selectedYear}
-            onChange={e => { setSelectedYear(e.target.value); setPage(1) }}
-            className="bg-gray-700 text-white text-sm px-3 py-1.5 rounded-lg border border-gray-600 ml-4"
-          >
+          <select value={selectedYear} onChange={e => { setSelectedYear(e.target.value); setPage(1) }}
+            className="bg-gray-700 text-white text-sm px-3 py-1.5 rounded-lg border border-gray-600 ml-4">
             <option value="">Все годы</option>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
-        <button onClick={handleSync} disabled={syncing}
-          className="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition">
-          {syncing ? '⟳ Синхронизация...' : 'Sync Google Sheets'}
-        </button>
+        <div className="flex items-center gap-3">
+          <a href="/mapping" className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">⚙️ Маппинг</a>
+          <button onClick={handleSync} disabled={syncing}
+            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition">
+            {syncing ? '⟳ Синхронизация...' : 'Sync Google Sheets'}
+          </button>
+        </div>
       </nav>
 
       <div className="p-6 space-y-6">
         {kpi && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
             {[
-              { label: 'Общая выручка', value: fmt(kpi.totalRevenue) },
-              { label: 'Кол-во продаж', value: kpi.totalQuantity.toLocaleString() },
+              { label: 'Выручка', value: fmt(kpi.totalRevenue) },
+              { label: 'Вал. прибыль', value: fmt(kpi.totalGrossProfit) },
+              { label: 'Маржа', value: fmtPct(kpi.margin) },
+              { label: 'Ср. чек', value: fmt(kpi.avgCheck) },
+              { label: 'Наполненность', value: kpi.fillRate.toFixed(1) },
               { label: 'Кол-во чеков', value: kpi.totalChecks.toLocaleString() },
-              { label: 'Ср. чек', value: fmt(kpi.avgRevPerCheck) },
+              { label: 'Кол-во товаров', value: kpi.totalQuantity.toLocaleString() },
             ].map((k, i) => (
               <div key={i} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
                 <p className="text-gray-400 text-xs">{k.label}</p>
-                <p className="text-2xl font-bold mt-1">{k.value}</p>
+                <p className="text-xl font-bold mt-1">{k.value}</p>
               </div>
             ))}
           </div>
@@ -157,19 +148,18 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 11 }} interval={Math.floor(trend.length / 10)} />
                   <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}K`} />
-                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
+                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
                   <Legend />
                   <Line type="monotone" dataKey="revenue" name="Выручка" stroke="#3b82f6" strokeWidth={2} dot={false}>
                     {showLabels.trend && <LabelList dataKey="revenue" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 9, fill: '#93c5fd' }} />}
                   </Line>
-                  <Line type="monotone" dataKey="checks" name="Чеки" stroke="#10b981" strokeWidth={2} dot={false}>
-                    {showLabels.trend && <LabelList dataKey="checks" position="bottom" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 9, fill: '#6ee7b7' }} />}
+                  <Line type="monotone" dataKey="grossProfit" name="Вал. прибыль" stroke="#10b981" strokeWidth={2} dot={false}>
+                    {showLabels.trend && <LabelList dataKey="grossProfit" position="bottom" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 9, fill: '#6ee7b7' }} />}
                   </Line>
                 </LineChart>
               </ResponsiveContainer>
               <Checkbox label="Показать значения" checked={showLabels.trend} onChange={() => toggleLabel('trend')} />
             </div>
-
             <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
               <h3 className="font-semibold mb-4">Выручка по годам</h3>
               <ResponsiveContainer width="100%" height={280}>
@@ -177,13 +167,13 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="year" stroke="#9ca3af" tick={{ fontSize: 11 }} />
                   <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000000).toFixed(1)}M`} />
-                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
+                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
                   <Legend />
                   <Bar dataKey="revenue" name="Выручка" fill="#3b82f6" radius={[4,4,0,0]}>
                     {showLabels.yearBar && <LabelList dataKey="revenue" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: '#93c5fd' }} />}
                   </Bar>
-                  <Bar dataKey="quantity" name="Кол-во" fill="#10b981" radius={[4,4,0,0]}>
-                    {showLabels.yearBar && <LabelList dataKey="quantity" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: '#6ee7b7' }} />}
+                  <Bar dataKey="grossProfit" name="Вал. прибыль" fill="#10b981" radius={[4,4,0,0]}>
+                    {showLabels.yearBar && <LabelList dataKey="grossProfit" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: '#6ee7b7' }} />}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -202,18 +192,12 @@ export default function Dashboard() {
                     label={showLabels.storePie ? ({ payload, percent }) => `${payload.store} ${((percent ?? 0)*100).toFixed(0)}%` : false}>
                     {byStore.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip
-  contentStyle={{ background: '#1f2937', border: '1px solid #374151' }}
-  formatter={(v: any) => [`${Number(v).toLocaleString()} MDL`, 'Выручка']}
-  labelStyle={{ color: '#ffffff' }}
-  itemStyle={{ color: '#ffffff' }}
-/>
+                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
               <Checkbox label="Показать значения" checked={showLabels.storePie} onChange={() => toggleLabel('storePie')} />
             </div>
-
             <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
               <h3 className="font-semibold mb-4">Топ магазинов по выручке</h3>
               <ResponsiveContainer width="100%" height={280}>
@@ -221,7 +205,7 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}K`} />
                   <YAxis type="category" dataKey="store" stroke="#9ca3af" tick={{ fontSize: 10 }} width={70} />
-                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} />
+                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
                   <Bar dataKey="revenue" name="Выручка" fill="#8b5cf6" radius={[0,4,4,0]}>
                     {showLabels.storeBar && <LabelList dataKey="revenue" position="right" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: '#c4b5fd' }} />}
                   </Bar>
@@ -244,7 +228,7 @@ export default function Dashboard() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-700/50">
                   <tr>
-                    {['Год', 'Месяц', 'Магазин', 'Выручка', 'Кол-во продаж', 'Чеки'].map(h => (
+                    {['Год','Месяц','Магазин','Выручка','Вал. прибыль','Маржа','Ср. чек','Наполн.','Чеки','Кол-во'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-gray-400 font-medium">{h}</th>
                     ))}
                   </tr>
@@ -256,8 +240,12 @@ export default function Dashboard() {
                       <td className="px-4 py-3 text-gray-400">{MONTHS[row.month - 1]}</td>
                       <td className="px-4 py-3 text-blue-400 font-medium">{row.store}</td>
                       <td className="px-4 py-3 text-blue-400">{fmt(row.revenue)}</td>
-                      <td className="px-4 py-3">{row.quantity.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-green-400">{fmt(row.grossProfit)}</td>
+                      <td className="px-4 py-3 text-purple-400">{fmtPct(row.margin)}</td>
+                      <td className="px-4 py-3">{fmt(row.avgCheck)}</td>
+                      <td className="px-4 py-3">{row.fillRate.toFixed(1)}</td>
                       <td className="px-4 py-3 text-green-400">{row.checks.toLocaleString()}</td>
+                      <td className="px-4 py-3">{row.quantity.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -265,14 +253,10 @@ export default function Dashboard() {
             </div>
             <div className="p-4 flex justify-between items-center border-t border-gray-700">
               <button disabled={page === 1} onClick={() => setPage(p => p-1)}
-                className="px-4 py-2 bg-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-600 transition text-sm">
-                ← Назад
-              </button>
+                className="px-4 py-2 bg-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-600 transition text-sm">← Назад</button>
               <span className="text-gray-400 text-sm">Стр. {page} из {Math.ceil(total/15)}</span>
               <button disabled={page >= Math.ceil(total/15)} onClick={() => setPage(p => p+1)}
-                className="px-4 py-2 bg-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-600 transition text-sm">
-                Вперёд →
-              </button>
+                className="px-4 py-2 bg-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-600 transition text-sm">Вперёд →</button>
             </div>
           </div>
         )}
