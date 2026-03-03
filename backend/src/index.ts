@@ -2,7 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import authRoutes from './routes/auth'
 import salesRoutes from './routes/sales'
-import syncRoutes from './routes/sync'
+import syncRoutes, { runSync } from './routes/sync'
 import mappingRoutes, { initSystemFields } from './routes/mapping'
 
 const app = express()
@@ -21,4 +21,16 @@ const PORT = process.env.PORT || 4000
 app.listen(PORT, async () => {
   console.log(`Backend running on port ${PORT}`)
   await initSystemFields()
+
+  // Автосинк каждый час
+  const ONE_HOUR = 60 * 60 * 1000
+  setInterval(async () => {
+    console.log('[AutoSync] Starting hourly sync...')
+    try {
+      const result = await runSync()
+      console.log(`[AutoSync] Done: ${result.newCount} new, ${result.updCount} updated`)
+    } catch (e) {
+      console.error('[AutoSync] Error:', e)
+    }
+  }, ONE_HOUR)
 })
