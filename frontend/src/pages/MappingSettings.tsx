@@ -140,6 +140,78 @@ export default function MappingSettings() {
           </div>
           <p className="text-gray-400 text-sm mb-4">Укажите какая колонка из источника соответствует каждому системному полю</p>
 
+          {showAddField && (
+          <div className="bg-gray-700/30 rounded-xl p-4 border border-blue-500/30 mb-4">
+            <h3 className="font-semibold mb-4 text-sm">➕ Новое поле</h3>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Название поля</label>
+                  <input type="text" value={newField.label} onChange={e => setNewField(p => ({ ...p, label: e.target.value }))}
+                    placeholder="Например: Себестоимость"
+                    className="w-full bg-gray-700 text-white text-sm px-3 py-2 rounded-lg border border-gray-600 outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Тип поля</label>
+                  <select value={newField.type} onChange={e => setNewField(p => ({ ...p, type: e.target.value as 'fact' | 'calculated' }))}
+                    className="w-full bg-gray-700 text-white text-sm px-3 py-2 rounded-lg border border-gray-600">
+                    <option value="fact">Факт (из источника)</option>
+                    <option value="calculated">Расчётное (формула)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Тип данных</label>
+                  <select value={newField.dataType} onChange={e => setNewField(p => ({ ...p, dataType: e.target.value }))}
+                    className="w-full bg-gray-700 text-white text-sm px-3 py-2 rounded-lg border border-gray-600">
+                    <option value="number">Число (дробное)</option>
+                    <option value="integer">Целое число</option>
+                    <option value="percent">Процент</option>
+                  </select>
+                </div>
+                {newField.type === 'fact' ? (
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Колонка в источнике</label>
+                    {sourceColumns.length > 0 ? (
+                      <select value={newField.sourceColumn} onChange={e => setNewField(p => ({ ...p, sourceColumn: e.target.value }))}
+                        className="w-full bg-gray-700 text-white text-sm px-3 py-2 rounded-lg border border-gray-600">
+                        <option value="">— выберите колонку —</option>
+                        {sourceColumns.map(col => <option key={col} value={col}>{col}</option>)}
+                      </select>
+                    ) : (
+                      <input type="text" value={newField.sourceColumn} onChange={e => setNewField(p => ({ ...p, sourceColumn: e.target.value }))}
+                        placeholder="Название колонки..."
+                        className="w-full bg-gray-700 text-white text-sm px-3 py-2 rounded-lg border border-gray-600 outline-none focus:ring-2 focus:ring-blue-500" />
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Формула</label>
+                    <input type="text" value={newField.formula} onChange={e => setNewField(p => ({ ...p, formula: e.target.value }))}
+                      placeholder="Например: revenue * 0.3"
+                      className="w-full bg-gray-700 text-white text-sm px-3 py-2 rounded-lg border border-gray-600 outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                  </div>
+                )}
+              </div>
+              {newField.type === 'calculated' && (
+                <div className="bg-gray-700/30 rounded-lg p-3">
+                  <p className="text-xs text-gray-400 mb-1">Доступные поля для формулы:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {allFieldKeys.map(k => (
+                      <span key={k} className="bg-gray-700 px-2 py-0.5 rounded text-xs font-mono text-blue-300">{k}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <button onClick={addCustomField} disabled={addingField}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 py-2 rounded-lg text-sm font-medium transition">
+                {addingField ? 'Добавление...' : '✓ Добавить поле'}
+              </button>
+            </div>
+          </div>
+          )}
+
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-4 text-xs text-gray-500 uppercase px-1">
               <span>Системное поле</span><span>Тип</span><span>Колонка в источнике</span>
