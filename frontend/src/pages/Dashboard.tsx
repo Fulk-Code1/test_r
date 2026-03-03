@@ -19,7 +19,6 @@ function fmtShort(n: number) {
   if (n >= 1_000) return `${(n/1_000).toFixed(0)}K`
   return `${n.toFixed(0)}`
 }
-function fmtPct(n: number) { return `${n.toFixed(1)}%` }
 
 function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
   return (
@@ -112,19 +111,16 @@ export default function Dashboard() {
 
       <div className="p-6 space-y-6">
         {kpi && (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Выручка', value: fmt(kpi.totalRevenue) },
-              { label: 'Вал. прибыль', value: fmt(kpi.totalGrossProfit) },
-              { label: 'Маржа', value: fmtPct(kpi.margin) },
-              { label: 'Ср. чек', value: fmt(kpi.avgCheck) },
-              { label: 'Наполненность', value: kpi.fillRate.toFixed(1) },
+              { label: 'Общая выручка', value: fmt(kpi.totalRevenue) },
+              { label: 'Кол-во продаж', value: kpi.totalQuantity.toLocaleString() },
               { label: 'Кол-во чеков', value: kpi.totalChecks.toLocaleString() },
-              { label: 'Кол-во товаров', value: kpi.totalQuantity.toLocaleString() },
+              { label: 'Ср. чек', value: fmt(kpi.avgCheck) },
             ].map((k, i) => (
               <div key={i} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
                 <p className="text-gray-400 text-xs">{k.label}</p>
-                <p className="text-xl font-bold mt-1">{k.value}</p>
+                <p className="text-2xl font-bold mt-1">{k.value}</p>
               </div>
             ))}
           </div>
@@ -153,13 +149,14 @@ export default function Dashboard() {
                   <Line type="monotone" dataKey="revenue" name="Выручка" stroke="#3b82f6" strokeWidth={2} dot={false}>
                     {showLabels.trend && <LabelList dataKey="revenue" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 9, fill: '#93c5fd' }} />}
                   </Line>
-                  <Line type="monotone" dataKey="grossProfit" name="Вал. прибыль" stroke="#10b981" strokeWidth={2} dot={false}>
-                    {showLabels.trend && <LabelList dataKey="grossProfit" position="bottom" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 9, fill: '#6ee7b7' }} />}
+                  <Line type="monotone" dataKey="checks" name="Чеки" stroke="#10b981" strokeWidth={2} dot={false}>
+                    {showLabels.trend && <LabelList dataKey="checks" position="bottom" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 9, fill: '#6ee7b7' }} />}
                   </Line>
                 </LineChart>
               </ResponsiveContainer>
               <Checkbox label="Показать значения" checked={showLabels.trend} onChange={() => toggleLabel('trend')} />
             </div>
+
             <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
               <h3 className="font-semibold mb-4">Выручка по годам</h3>
               <ResponsiveContainer width="100%" height={280}>
@@ -172,8 +169,8 @@ export default function Dashboard() {
                   <Bar dataKey="revenue" name="Выручка" fill="#3b82f6" radius={[4,4,0,0]}>
                     {showLabels.yearBar && <LabelList dataKey="revenue" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: '#93c5fd' }} />}
                   </Bar>
-                  <Bar dataKey="grossProfit" name="Вал. прибыль" fill="#10b981" radius={[4,4,0,0]}>
-                    {showLabels.yearBar && <LabelList dataKey="grossProfit" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: '#6ee7b7' }} />}
+                  <Bar dataKey="quantity" name="Кол-во" fill="#10b981" radius={[4,4,0,0]}>
+                    {showLabels.yearBar && <LabelList dataKey="quantity" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: '#6ee7b7' }} />}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -198,6 +195,7 @@ export default function Dashboard() {
               </ResponsiveContainer>
               <Checkbox label="Показать значения" checked={showLabels.storePie} onChange={() => toggleLabel('storePie')} />
             </div>
+
             <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
               <h3 className="font-semibold mb-4">Топ магазинов по выручке</h3>
               <ResponsiveContainer width="100%" height={280}>
@@ -228,7 +226,7 @@ export default function Dashboard() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-700/50">
                   <tr>
-                    {['Год','Месяц','Магазин','Выручка','Вал. прибыль','Маржа','Ср. чек','Наполн.','Чеки','Кол-во'].map(h => (
+                    {['Год','Месяц','Магазин','Выручка','Кол-во продаж','Чеки'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-gray-400 font-medium">{h}</th>
                     ))}
                   </tr>
@@ -240,12 +238,8 @@ export default function Dashboard() {
                       <td className="px-4 py-3 text-gray-400">{MONTHS[row.month - 1]}</td>
                       <td className="px-4 py-3 text-blue-400 font-medium">{row.store}</td>
                       <td className="px-4 py-3 text-blue-400">{fmt(row.revenue)}</td>
-                      <td className="px-4 py-3 text-green-400">{fmt(row.grossProfit)}</td>
-                      <td className="px-4 py-3 text-purple-400">{fmtPct(row.margin)}</td>
-                      <td className="px-4 py-3">{fmt(row.avgCheck)}</td>
-                      <td className="px-4 py-3">{row.fillRate.toFixed(1)}</td>
-                      <td className="px-4 py-3 text-green-400">{row.checks.toLocaleString()}</td>
                       <td className="px-4 py-3">{row.quantity.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-green-400">{row.checks.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>

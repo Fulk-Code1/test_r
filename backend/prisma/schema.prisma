@@ -15,37 +15,36 @@ model User {
   createdAt DateTime @default(now())
 }
 
-// Системные поля дашборда (зашиты в логику)
 model SystemField {
-  id          Int      @id @default(autoincrement())
-  key         String   @unique  // revenue, gross_profit, margin, avg_check, fill_rate, checks, quantity
-  label       String            // Выручка, Валовая прибыль...
-  type        String            // fact | calculated
-  formula     String?           // для расчётных: "revenue / checks", "gross_profit / revenue * 100"
-  dataType    String            // number | integer | percent
-  createdAt   DateTime @default(now())
-  mappings    FieldMapping[]
+  id        Int            @id @default(autoincrement())
+  key       String         @unique
+  label     String
+  type      String
+  formula   String?
+  dataType  String
+  createdAt DateTime       @default(now())
+  mappings  FieldMapping[]
 }
 
-// Маппинг колонок источника на системные поля
 model FieldMapping {
   id            Int         @id @default(autoincrement())
-  sourceColumn  String      // название колонки в Google Sheets
+  sourceColumn  String      @unique
   systemFieldId Int
   systemField   SystemField @relation(fields: [systemFieldId], references: [id])
   createdAt     DateTime    @default(now())
-
-  @@unique([sourceColumn])
 }
 
-// Хранилище сырых данных (динамические поля через JSON)
+// Основная таблица данных — фиксированные колонки
 model SaleRecord {
-  id        Int      @id @default(autoincrement())
-  year      Int
-  month     Int
-  store     String
-  data      Json     // все промапленные поля хранятся здесь
-  syncedAt  DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  year        Int
+  month       Int
+  store       String
+  revenue     Float    @default(0)
+  quantity    Int      @default(0)
+  checks      Int      @default(0)
+  grossProfit Float    @default(0)
+  syncedAt    DateTime @default(now())
 }
 
 model SyncLog {
