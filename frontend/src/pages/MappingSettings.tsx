@@ -13,6 +13,8 @@ interface NewField { label: string; type: 'fact' | 'calculated'; dataType: strin
 const emptyNewField = (): NewField => ({ label: '', type: 'fact', dataType: 'number', formula: '', sourceColumn: '' })
 
 export default function MappingSettings() {
+  const user = JSON.parse(localStorage.getItem('user') || 'null')
+  const handleLogout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login' }
   const [systemFields, setSystemFields] = useState<SystemField[]>([])
   const [sourceColumns, setSourceColumns] = useState<string[]>([])
   const [mappings, setMappings] = useState<MappingRow[]>([])
@@ -107,7 +109,12 @@ export default function MappingSettings() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <Navbar active="settings" />
+      <Navbar active="settings" userRole={user?.role} rightSlot={
+        <>
+          <span className="text-gray-400 text-sm">{user?.name}</span>
+          <button onClick={handleLogout} className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg text-sm transition">Выйти</button>
+        </>
+      } />
       <div className="p-6 max-w-4xl mx-auto space-y-6">
         <h2 className="text-xl font-bold">⚙️ Настройка маппинга полей</h2>
 

@@ -32,6 +32,8 @@ function Checkbox({ label, checked, onChange }: { label: string; checked: boolea
 }
 
 export default function Dashboard() {
+  const user = JSON.parse(localStorage.getItem('user') || 'null')
+  const handleLogout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login' }
   const [kpi, setKpi] = useState<any>(null)
   const [trend, setTrend] = useState<any[]>([])
   const [byStore, setByStore] = useState<any[]>([])
@@ -89,7 +91,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <Navbar active="dashboard" rightSlot={
+      <Navbar active="dashboard" userRole={user?.role} rightSlot={
         <>
           <select value={selectedYear} onChange={e => { setSelectedYear(e.target.value); setPage(1) }}
             className="bg-gray-700 text-white text-sm px-3 py-1.5 rounded-lg border border-gray-600">
@@ -100,6 +102,8 @@ export default function Dashboard() {
             className="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition">
             {syncing ? '⟳ Синхронизация...' : 'Sync Google Sheets'}
           </button>
+          <span className="text-gray-400 text-sm">{user?.name}</span>
+          <button onClick={handleLogout} className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg text-sm transition">Выйти</button>
         </>
       } />
 
