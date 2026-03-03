@@ -19,10 +19,10 @@ model SystemField {
   id        Int            @id @default(autoincrement())
   key       String         @unique
   label     String
-  type      String         // fact | calculated
+  type      String
   formula   String?
-  dataType  String         // number | integer | percent
-  isCustom  Boolean        @default(false)  // пользовательские поля
+  dataType  String
+  isCustom  Boolean        @default(false)
   createdAt DateTime       @default(now())
   mappings  FieldMapping[]
 }
@@ -44,14 +44,19 @@ model SaleRecord {
   quantity    Int      @default(0)
   checks      Int      @default(0)
   grossProfit Float    @default(0)
-  extraData   Json?    // пользовательские поля хранятся здесь
+  extraData   Json?
   syncedAt    DateTime @default(now())
+
+  @@unique([year, month, store])
 }
 
 model SyncLog {
-  id        Int      @id @default(autoincrement())
-  syncedAt  DateTime @default(now())
-  rowsCount Int
-  status    String
-  message   String?
+  id         Int      @id @default(autoincrement())
+  syncedAt   DateTime @default(now())
+  rowsCount  Int
+  newCount   Int      @default(0)
+  updCount   Int      @default(0)
+  status     String
+  message    String?
+  updates    Json?    // список обновлённых записей { store, year, month }[]
 }
