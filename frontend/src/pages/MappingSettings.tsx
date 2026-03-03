@@ -137,7 +137,7 @@ export default function MappingSettings() {
         )}
         <button onClick={saveMapping} disabled={saving}
           className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 py-3 rounded-xl font-medium transition">
-          {saving ? 'Сохранение...' : '💾 Сохранить маппинг'}
+          {saving ? 'Сохранение...' : 'Сохранить маппинг'}
         </button>
       </div>
     </div>

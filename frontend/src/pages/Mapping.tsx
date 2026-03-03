@@ -89,17 +89,17 @@ export default function MappingPage() {
     <div className="min-h-screen bg-gray-900 text-white">
       <nav className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">📊</span>
+          <span className="text-2xl"></span>
           <h1 className="text-xl font-bold">Sales Dashboard</h1>
         </div>
         <div className="flex items-center gap-2">
           <a href="/"
             className="px-4 py-2 rounded-lg text-sm font-medium transition bg-gray-700 hover:bg-gray-600">
-            📊 Дашборд
+            Дашборд
           </a>
           <a href="/mapping"
             className="px-4 py-2 rounded-lg text-sm font-medium transition bg-blue-600">
-            ⚙️ Маппинг
+            Маппинг
           </a>
         </div>
       </nav>
@@ -204,7 +204,7 @@ export default function MappingPage() {
         )}
         <button onClick={saveMapping} disabled={saving}
           className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 py-3 rounded-xl font-medium transition">
-          {saving ? 'Сохранение...' : '💾 Сохранить маппинг'}
+          {saving ? 'Сохранение...' : 'Сохранить маппинг'}
         </button>
       </div>
     </div>
