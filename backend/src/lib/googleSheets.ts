@@ -12,7 +12,7 @@ export async function fetchSalesData(): Promise<Record<string, string>[]> {
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: 'Sales_Data!A:F',
+    range: 'Sales_Data',  // читаем весь лист динамически
   })
 
   const rows = response.data.values
@@ -24,4 +24,22 @@ export async function fetchSalesData(): Promise<Record<string, string>[]> {
     headers.forEach((h, i) => { obj[h] = row[i] || '' })
     return obj
   })
+}
+
+// Получить только заголовки (для маппинга)
+export async function fetchSourceColumns(): Promise<string[]> {
+  const auth = new google.auth.GoogleAuth({
+    keyFile: path.join(__dirname, '../../service-account.json'),
+    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+  })
+
+  const sheets = google.sheets({ version: 'v4', auth })
+  const spreadsheetId = process.env.SPREADSHEET_ID!
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: 'Sales_Data!1:1',
+  })
+
+  return response.data.values?.[0] || []
 }
