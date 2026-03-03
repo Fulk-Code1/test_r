@@ -4,6 +4,7 @@ import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList
 } from 'recharts'
+import Navbar from '../components/Navbar'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316', '#14b8a6', '#a855f7']
@@ -90,24 +91,19 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <nav className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">📊</span>
-          <h1 className="text-xl font-bold">Sales Dashboard</h1>
+      <Navbar active="dashboard" rightSlot={
+        <>
           <select value={selectedYear} onChange={e => { setSelectedYear(e.target.value); setPage(1) }}
-            className="bg-gray-700 text-white text-sm px-3 py-1.5 rounded-lg border border-gray-600 ml-4">
+            className="bg-gray-700 text-white text-sm px-3 py-1.5 rounded-lg border border-gray-600">
             <option value="">Все годы</option>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
-        </div>
-        <div className="flex items-center gap-3">
-          <a href="/mapping" className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm font-medium transition">⚙️ Маппинг</a>
           <button onClick={handleSync} disabled={syncing}
             className="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition">
             {syncing ? '⟳ Синхронизация...' : 'Sync Google Sheets'}
           </button>
-        </div>
-      </nav>
+        </>
+      } />
 
       <div className="p-6 space-y-6">
         {kpi && (
@@ -156,7 +152,6 @@ export default function Dashboard() {
               </ResponsiveContainer>
               <Checkbox label="Показать значения" checked={showLabels.trend} onChange={() => toggleLabel('trend')} />
             </div>
-
             <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
               <h3 className="font-semibold mb-4">Выручка по годам</h3>
               <ResponsiveContainer width="100%" height={280}>
@@ -195,7 +190,6 @@ export default function Dashboard() {
               </ResponsiveContainer>
               <Checkbox label="Показать значения" checked={showLabels.storePie} onChange={() => toggleLabel('storePie')} />
             </div>
-
             <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
               <h3 className="font-semibold mb-4">Топ магазинов по выручке</h3>
               <ResponsiveContainer width="100%" height={280}>
