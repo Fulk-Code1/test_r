@@ -5,6 +5,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList
 } from 'recharts'
 import Navbar from '../components/Navbar'
+import SyncNotification from '../components/SyncNotification'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316', '#14b8a6', '#a855f7']
@@ -41,6 +42,7 @@ export default function MappingDashboard() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<any>(null)
   const [activeTab, setActiveTab] = useState('overview')
   const [years, setYears] = useState<number[]>([])
   const [selectedYear, setSelectedYear] = useState<string>('')
@@ -84,9 +86,9 @@ export default function MappingDashboard() {
   const handleSync = async () => {
     setSyncing(true)
     try {
-      await axios.post(`${API}/sync`)
+      const res = await axios.post(`${API}/sync`)
       await fetchAll(); await fetchTable()
-      alert('Синхронизация прошла успешно!')
+      setSyncResult(res.data)
     } catch (e: any) {
       alert('Ошибка: ' + (e.response?.data?.error || e.message))
     }
@@ -109,6 +111,8 @@ export default function MappingDashboard() {
         </>
       } />
 
+      {syncResult && <SyncNotification result={syncResult} onClose={() => setSyncResult(null)} />}
+
       <div className="p-6 space-y-6">
         {!hasMappings && (
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-yellow-400 text-sm">
@@ -117,7 +121,7 @@ export default function MappingDashboard() {
         )}
 
         {kpi && (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: 'Выручка', value: fmt(kpi.totalRevenue) },
               { label: 'Вал. прибыль', value: fmt(kpi.totalGrossProfit) },

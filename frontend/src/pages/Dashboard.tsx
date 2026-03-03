@@ -5,6 +5,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList
 } from 'recharts'
 import Navbar from '../components/Navbar'
+import SyncNotification from '../components/SyncNotification'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316', '#14b8a6', '#a855f7']
@@ -40,6 +41,7 @@ export default function Dashboard() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<any>(null)
   const [activeTab, setActiveTab] = useState('overview')
   const [years, setYears] = useState<number[]>([])
   const [selectedYear, setSelectedYear] = useState<string>('')
@@ -56,11 +58,8 @@ export default function Dashboard() {
         axios.get(`${API}/sales/by-year`),
         axios.get(`${API}/sales/years`),
       ])
-      setKpi(kpiR.data)
-      setTrend(trendR.data)
-      setByStore(storeR.data)
-      setYearTrend(yearR.data)
-      setYears(yearsR.data)
+      setKpi(kpiR.data); setTrend(trendR.data); setByStore(storeR.data)
+      setYearTrend(yearR.data); setYears(yearsR.data)
     } catch { console.error('fetch error') }
   }, [selectedYear])
 
@@ -69,8 +68,7 @@ export default function Dashboard() {
       const res = await axios.get(`${API}/sales/table`, {
         params: { page, limit: 15, search, ...(selectedYear ? { year: selectedYear } : {}) }
       })
-      setTable(res.data.data)
-      setTotal(res.data.total)
+      setTable(res.data.data); setTotal(res.data.total)
     } catch { console.error('table error') }
   }, [page, search, selectedYear])
 
@@ -80,9 +78,9 @@ export default function Dashboard() {
   const handleSync = async () => {
     setSyncing(true)
     try {
-      await axios.post(`${API}/sync`)
+      const res = await axios.post(`${API}/sync`)
       await fetchAll(); await fetchTable()
-      alert('Синхронизация прошла успешно!')
+      setSyncResult(res.data)
     } catch (e: any) {
       alert('Ошибка: ' + (e.response?.data?.error || e.message))
     }
@@ -104,6 +102,8 @@ export default function Dashboard() {
           </button>
         </>
       } />
+
+      {syncResult && <SyncNotification result={syncResult} onClose={() => setSyncResult(null)} />}
 
       <div className="p-6 space-y-6">
         {kpi && (
