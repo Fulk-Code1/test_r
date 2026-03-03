@@ -101,7 +101,7 @@ export default function Dashboard() {
           </select>
         </div>
         <div className="flex items-center gap-3">
-          <a href="/mapping" className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">⚙️ Маппинг</a>
+          <a href="/mapping" className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm font-medium transition">⚙️ Маппинг</a>
           <button onClick={handleSync} disabled={syncing}
             className="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition">
             {syncing ? '⟳ Синхронизация...' : 'Sync Google Sheets'}

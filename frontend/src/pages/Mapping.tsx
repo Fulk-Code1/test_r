@@ -33,7 +33,6 @@ export default function MappingPage() {
     ]).then(([fieldsRes, mappingRes]) => {
       setSystemFields(fieldsRes.data)
       const existingMappings: any[] = mappingRes.data
-      // Инициализируем mappings из БД
       const init = fieldsRes.data
         .filter((f: SystemField) => f.type === 'fact')
         .map((f: SystemField) => {
@@ -87,17 +86,31 @@ export default function MappingPage() {
   if (loading) return <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">Загрузка...</div>
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">⚙️ Настройка маппинга полей</h1>
-          <a href="/" className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">← Дашборд</a>
+    <div className="min-h-screen bg-gray-900 text-white">
+      <nav className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">📊</span>
+          <h1 className="text-xl font-bold">Sales Dashboard</h1>
         </div>
+        <div className="flex items-center gap-2">
+          <a href="/"
+            className="px-4 py-2 rounded-lg text-sm font-medium transition bg-gray-700 hover:bg-gray-600">
+            📊 Дашборд
+          </a>
+          <a href="/mapping"
+            className="px-4 py-2 rounded-lg text-sm font-medium transition bg-blue-600">
+            ⚙️ Маппинг
+          </a>
+        </div>
+      </nav>
+
+      <div className="p-6 max-w-4xl mx-auto space-y-6">
+        <h2 className="text-xl font-bold">⚙️ Настройка маппинга полей</h2>
 
         {/* Загрузка колонок из источника */}
         <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold">Колонки из Google Sheets</h2>
+            <h3 className="font-semibold">Колонки из Google Sheets</h3>
             <button onClick={loadSourceColumns} disabled={loadingCols}
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm transition">
               {loadingCols ? 'Загрузка...' : '🔄 Загрузить колонки из источника'}
@@ -112,20 +125,18 @@ export default function MappingPage() {
           )}
         </div>
 
-        {/* Маппинг фактических полей */}
+        {/* Маппинг полей */}
         <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-          <h2 className="font-semibold mb-4">Маппинг полей источника → системные поля</h2>
+          <h3 className="font-semibold mb-4">Маппинг полей источника → системные поля</h3>
           <p className="text-gray-400 text-sm mb-4">Укажите какая колонка из источника соответствует каждому системному полю</p>
 
           <div className="space-y-3">
-            {/* Заголовок */}
             <div className="grid grid-cols-3 gap-4 text-xs text-gray-500 uppercase px-1">
               <span>Системное поле</span>
               <span>Тип</span>
               <span>Колонка в источнике</span>
             </div>
 
-            {/* Фактические поля */}
             {mappings.map((m, i) => {
               const sysField = factFields.find(f => f.key === m.systemFieldKey)
               return (
@@ -134,29 +145,21 @@ export default function MappingPage() {
                   <span className="text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full w-fit">факт</span>
                   <div className="flex gap-2">
                     {sourceColumns.length > 0 ? (
-                      <select
-                        value={m.sourceColumn}
-                        onChange={e => updateMapping(m.systemFieldKey, e.target.value)}
-                        className="flex-1 bg-gray-600 text-white text-sm px-3 py-1.5 rounded-lg border border-gray-500"
-                      >
+                      <select value={m.sourceColumn} onChange={e => updateMapping(m.systemFieldKey, e.target.value)}
+                        className="flex-1 bg-gray-600 text-white text-sm px-3 py-1.5 rounded-lg border border-gray-500">
                         <option value="">— не выбрано —</option>
                         {sourceColumns.map(col => <option key={col} value={col}>{col}</option>)}
                       </select>
                     ) : (
-                      <input
-                        type="text"
-                        value={m.sourceColumn}
-                        onChange={e => updateMapping(m.systemFieldKey, e.target.value)}
+                      <input type="text" value={m.sourceColumn} onChange={e => updateMapping(m.systemFieldKey, e.target.value)}
                         placeholder="Название колонки..."
-                        className="flex-1 bg-gray-600 text-white text-sm px-3 py-1.5 rounded-lg border border-gray-500 outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                        className="flex-1 bg-gray-600 text-white text-sm px-3 py-1.5 rounded-lg border border-gray-500 outline-none focus:ring-2 focus:ring-blue-500" />
                     )}
                   </div>
                 </div>
               )
             })}
 
-            {/* Расчётные поля — только для просмотра */}
             {calcFields.map(field => (
               <div key={field.key} className="grid grid-cols-3 gap-4 items-center bg-gray-700/20 rounded-lg px-3 py-2 border border-dashed border-gray-600">
                 <span className="text-sm font-medium text-gray-300">{field.label}</span>
@@ -171,7 +174,7 @@ export default function MappingPage() {
         {sourceColumns.length > 0 && (
           <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold">Дополнительные колонки</h2>
+              <h3 className="font-semibold">Дополнительные колонки</h3>
               <button onClick={addCustomField} className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg text-sm transition">
                 + Добавить поле
               </button>
@@ -194,7 +197,6 @@ export default function MappingPage() {
           </div>
         )}
 
-        {/* Сохранить */}
         {message && (
           <div className={`p-3 rounded-lg text-sm ${message.includes('Ошибка') ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
             {message}
