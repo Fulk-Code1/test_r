@@ -4,16 +4,56 @@ import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList
 } from 'recharts'
+import * as XLSX from 'xlsx'
 import Navbar from '../components/Navbar'
 import SyncNotification from '../components/SyncNotification'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316', '#14b8a6', '#a855f7']
 const MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
+const MONTHS_FULL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']
 
-// Поля которые НИКОГДА не попадают в "Остальное" — у них свои отдельные графики
 const EXCLUDED_FROM_EXTRA = new Set(['revenue', 'quantity', 'checks', 'avgCheck', 'grossProfit', 'margin', 'label', 'year', 'month'])
 
+// ─── Excel helpers ───────────────────────────────────────────────
+function xlsxDownload(rows: Record<string, any>[], filename: string, sheetName = 'Данные') {
+  if (!rows?.length) return
+  const ws = XLSX.utils.json_to_sheet(rows)
+  ws['!cols'] = Object.keys(rows[0]).map(k => ({
+    wch: Math.max(k.length, ...rows.map(r => String(r[k] ?? '').length)) + 2
+  }))
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31))
+  XLSX.writeFile(wb, `${filename}.xlsx`)
+}
+
+function xlsxDownloadMulti(sheets: { name: string; rows: Record<string, any>[] }[], filename: string) {
+  const wb = XLSX.utils.book_new()
+  sheets.forEach(({ name, rows }) => {
+    if (!rows?.length) return
+    const ws = XLSX.utils.json_to_sheet(rows)
+    ws['!cols'] = Object.keys(rows[0]).map(k => ({
+      wch: Math.max(k.length, ...rows.map(r => String(r[k] ?? '').length)) + 2
+    }))
+    XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31))
+  })
+  XLSX.writeFile(wb, `${filename}.xlsx`)
+}
+
+// Иконка скачивания
+function DownloadBtn({ onClick, title }: { onClick: () => void; title?: string }) {
+  return (
+    <button onClick={onClick} title={title || 'Скачать Excel'}
+      className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-gray-700 hover:bg-green-700 text-gray-400 hover:text-white transition text-xs">
+      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+      </svg>
+      .xlsx
+    </button>
+  )
+}
+
+// ─── Форматирование ───────────────────────────────────────────────
 function fmt(n: number) {
   if (n >= 1_000_000) return `${(n/1_000_000).toFixed(1)}M MDL`
   if (n >= 1_000) return `${(n/1_000).toFixed(0)}K MDL`
@@ -27,7 +67,6 @@ function fmtShort(n: number) {
 function fmtPct(n: number) { return `${n.toFixed(1)}%` }
 
 type ChartType = 'line' | 'bar' | 'bar-horizontal'
-
 const ttStyle = { background: '#1f2937', border: '1px solid #374151', fontSize: 13 }
 const ttProps = { contentStyle: ttStyle, labelStyle: { color: '#fff', fontSize: 13 }, itemStyle: { color: '#fff', fontSize: 13 } }
 
@@ -44,8 +83,10 @@ function ChartTypeSwitcher({ value, onChange }: { value: ChartType; onChange: (t
   )
 }
 
-function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip }: {
-  title: string; data: any[]; dataKey: string; xKey: string; color: string; formatTooltip: (v: number) => string
+// ─── SingleMetricChart ────────────────────────────────────────────
+function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, filename }: {
+  title: string; data: any[]; dataKey: string; xKey: string; color: string
+  formatTooltip: (v: number) => string; filename: string
 }) {
   const [chartType, setChartType] = useState<ChartType>('line')
   const [showLabels, setShowLabels] = useState(false)
@@ -64,6 +105,11 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip }:
       formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: color }} />
   ) : null
   const xInterval = Math.floor(data.length / 10)
+
+  const handleDownload = () => {
+    const rows = data.map(r => ({ [xKey]: r[xKey], [title]: r[dataKey] ?? 0 }))
+    xlsxDownload(rows, filename, title)
+  }
 
   return (
     <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
@@ -120,14 +166,19 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip }:
           </BarChart>
         )}
       </ResponsiveContainer>
+      {/* Кнопка скачивания под графиком справа */}
+      <div className="flex justify-end mt-3">
+        <DownloadBtn onClick={handleDownload} title={`Скачать «${title}»`} />
+      </div>
     </div>
   )
 }
 
-function MultiMetricChart({ title, data, xKey, metrics, emptyMessage }: {
+// ─── MultiMetricChart ─────────────────────────────────────────────
+function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename }: {
   title: string; data: any[]; xKey: string
   metrics: { key: string; name: string; color: string }[]
-  emptyMessage?: string
+  emptyMessage?: string; filename: string
 }) {
   const [chartType, setChartType] = useState<ChartType>('line')
   const [active, setActive] = useState<string[]>(metrics.map(m => m.key))
@@ -150,6 +201,15 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage }: {
   const barSize = chartType === 'bar-horizontal' ? (showAllHorizontal ? 16 : 28) : undefined
   const strokeWidth = chartType === 'bar-horizontal' ? (showAllHorizontal ? 0.5 : 1.5) : undefined
   const xInterval = Math.floor(data.length / 10)
+
+  const handleDownload = () => {
+    const rows = data.map(r => {
+      const obj: any = { [xKey]: r[xKey] }
+      metrics.forEach(m => { obj[m.name] = r[m.key] ?? 0 })
+      return obj
+    })
+    xlsxDownload(rows, filename, title)
+  }
 
   if (metrics.length === 0) return (
     <div className="bg-gray-800 rounded-xl p-6 border border-dashed border-gray-600">
@@ -235,10 +295,15 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage }: {
           </BarChart>
         )}
       </ResponsiveContainer>
+      {/* Кнопка скачивания под графиком справа */}
+      <div className="flex justify-end mt-3">
+        <DownloadBtn onClick={handleDownload} title={`Скачать «${title}»`} />
+      </div>
     </div>
   )
 }
 
+// ─── Dashboard ────────────────────────────────────────────────────
 export default function Dashboard() {
   const user = JSON.parse(localStorage.getItem('user') || 'null')
   const handleLogout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login' }
@@ -258,7 +323,6 @@ export default function Dashboard() {
   const [selectedYear, setSelectedYear] = useState<string>('')
   const [showStorePieLabels, setShowStorePieLabels] = useState(false)
   const [hasMappings, setHasMappings] = useState(true)
-  // Только поля из Google Sheets / маппинга — БЕЗ grossProfit и margin
   const [extraFields, setExtraFields] = useState<{ key: string; name: string; color: string }[]>([])
 
   const fetchAll = useCallback(async () => {
@@ -272,21 +336,12 @@ export default function Dashboard() {
         axios.get(`${API}/sales/years`),
         axios.get(`${API}/mapping`),
       ])
-      setKpi(kpiR.data)
-      setTrend(trendR.data)
-      setByStore(storeR.data)
-      setYearTrend(yearR.data)
-      setYears(yearsR.data)
+      setKpi(kpiR.data); setTrend(trendR.data); setByStore(storeR.data)
+      setYearTrend(yearR.data); setYears(yearsR.data)
       setHasMappings(mappingR.data.length > 0)
-
-      // Определяем кастомные поля: всё что есть в тренде, кроме стандартных и grossProfit/margin
       const sample = trendR.data[0] || {}
       const dynamicKeys = Object.keys(sample).filter(k => !EXCLUDED_FROM_EXTRA.has(k))
-      setExtraFields(dynamicKeys.map((k, i) => ({
-        key: k,
-        name: k,
-        color: COLORS[i % COLORS.length]
-      })))
+      setExtraFields(dynamicKeys.map((k, i) => ({ key: k, name: k, color: COLORS[i % COLORS.length] })))
     } catch { console.error('fetch error') }
   }, [selectedYear])
 
@@ -315,9 +370,91 @@ export default function Dashboard() {
   const trendWithCalc = trend.map(r => ({
     ...r,
     avgCheck: r.checks > 0 ? Math.round(r.revenue / r.checks) : 0,
-    // Маржа = Вал. прибыль / Выручка * 100
-    margin: r.revenue > 0 ? (r.grossProfit / r.revenue) * 100 : 0,
+    margin: r.revenue > 0 ? parseFloat(((r.grossProfit / r.revenue) * 100).toFixed(2)) : 0,
   }))
+
+  const yearLabel = selectedYear ? `_${selectedYear}` : ''
+
+  // ── Выгрузка всего таба ──
+  const downloadOverview = () => {
+    xlsxDownloadMulti([
+      {
+        name: 'Выручка',
+        rows: trendWithCalc.map(r => ({ Период: r.label, 'Выручка (MDL)': r.revenue }))
+      },
+      {
+        name: 'Кол-во продаж',
+        rows: trendWithCalc.map(r => ({ Период: r.label, 'Кол-во продаж': r.quantity }))
+      },
+      {
+        name: 'Кол-во чеков',
+        rows: trendWithCalc.map(r => ({ Период: r.label, 'Кол-во чеков': r.checks }))
+      },
+      {
+        name: 'Средний чек',
+        rows: trendWithCalc.map(r => ({ Период: r.label, 'Средний чек (MDL)': r.avgCheck }))
+      },
+      {
+        name: 'Валовая прибыль',
+        rows: trendWithCalc.map(r => ({ Период: r.label, 'Вал. прибыль (MDL)': r.grossProfit }))
+      },
+      {
+        name: 'Маржа',
+        rows: trendWithCalc.map(r => ({ Период: r.label, 'Маржа (%)': r.margin }))
+      },
+      {
+        name: 'По годам',
+        rows: yearTrend.map(r => ({ Год: r.year, 'Выручка (MDL)': r.revenue, 'Вал. прибыль (MDL)': r.grossProfit, 'Кол-во': r.quantity }))
+      },
+      ...(extraFields.length > 0 ? [{
+        name: 'Остальное',
+        rows: trendWithCalc.map(r => {
+          const obj: any = { Период: r.label }
+          extraFields.forEach(f => { obj[f.name] = r[f.key] ?? 0 })
+          return obj
+        })
+      }] : [])
+    ], `Дашборд_Тренды${yearLabel}`)
+  }
+
+  const downloadBreakdown = () => {
+    xlsxDownloadMulti([
+      {
+        name: 'Доля выручки по магазинам',
+        rows: byStore.map(r => ({ Магазин: r.store, 'Выручка (MDL)': r.revenue }))
+      },
+      {
+        name: 'Топ магазинов',
+        rows: [...byStore].sort((a,b) => b.revenue - a.revenue).map((r, i) => ({
+          '#': i + 1, Магазин: r.store, 'Выручка (MDL)': r.revenue
+        }))
+      }
+    ], `Дашборд_Разбивка${yearLabel}`)
+  }
+
+  const downloadTable = () => {
+    xlsxDownload(
+      table.map(row => {
+        const margin = row.revenue > 0 ? parseFloat(((row.grossProfit / row.revenue) * 100).toFixed(2)) : 0
+        const avgCheck = row.checks > 0 ? Math.round(row.revenue / row.checks) : 0
+        const obj: any = {
+          Год: row.year,
+          Месяц: MONTHS_FULL[row.month - 1],
+          Магазин: row.store,
+          'Выручка (MDL)': row.revenue,
+          'Вал. прибыль (MDL)': row.grossProfit ?? 0,
+          'Маржа (%)': margin,
+          'Ср. чек (MDL)': avgCheck,
+          'Кол-во продаж': row.quantity ?? 0,
+          'Чеки': row.checks ?? 0,
+        }
+        extraFields.forEach(f => { obj[f.name] = row.extraData?.[f.key] ?? row[f.key] ?? '' })
+        return obj
+      }),
+      `Дашборд_Таблица${yearLabel}`,
+      'Данные'
+    )
+  }
 
   const kpiCards = kpi ? [
     { label: 'Выручка',       value: fmt(kpi.totalRevenue ?? 0),       color: 'text-blue-400' },
@@ -325,9 +462,14 @@ export default function Dashboard() {
     { label: 'Кол-во чеков',  value: (kpi.totalChecks ?? 0).toLocaleString(),   color: 'text-cyan-400' },
     { label: 'Ср. чек',       value: fmt(kpi.avgCheck ?? 0),           color: 'text-yellow-400' },
     { label: 'Вал. прибыль',  value: fmt(kpi.totalGrossProfit ?? 0),   color: 'text-green-400' },
-    // Маржа = Вал. прибыль / Выручка * 100
     { label: 'Маржа', value: fmtPct(kpi.totalRevenue > 0 ? (kpi.totalGrossProfit / kpi.totalRevenue) * 100 : 0), color: 'text-pink-400' },
   ] : []
+
+  const tabDownloadMap: Record<string, () => void> = {
+    overview: downloadOverview,
+    breakdown: downloadBreakdown,
+    table: downloadTable,
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -356,7 +498,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* KPI карточки */}
         {kpi && (
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
             {kpiCards.map((k, i) => (
@@ -368,65 +509,60 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Табы — только 3, без Маппинга */}
-        <div className="flex gap-2">
-          {[
-            { id: 'overview',  label: 'Тренды' },
-            { id: 'breakdown', label: 'Разбивка' },
-            { id: 'table',     label: 'Таблица' },
-          ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === tab.id ? 'bg-blue-600' : 'bg-gray-800 hover:bg-gray-700'}`}>
-              {tab.label}
-            </button>
-          ))}
+        {/* Табы + иконка скачивания всего таба справа */}
+        <div className="flex items-center justify-between">
+          <div className="flex gap-2">
+            {[
+              { id: 'overview',  label: 'Тренды' },
+              { id: 'breakdown', label: 'Разбивка' },
+              { id: 'table',     label: 'Таблица' },
+            ].map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === tab.id ? 'bg-blue-600' : 'bg-gray-800 hover:bg-gray-700'}`}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          {/* Общая кнопка выгрузки текущего таба */}
+          <button onClick={() => tabDownloadMap[activeTab]?.()}
+            title="Скачать все данные этой страницы"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800 hover:bg-green-700 text-gray-400 hover:text-white transition text-sm border border-gray-700">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+            </svg>
+            Скачать всё
+          </button>
         </div>
 
         {/* Тренды */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
-            {/* 4 стандартных показателя */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <SingleMetricChart title="Выручка" data={trendWithCalc} dataKey="revenue" xKey="label"
-                color="#3b82f6" formatTooltip={v => `${v.toLocaleString()} MDL`} />
+                color="#3b82f6" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Выручка${yearLabel}`} />
               <SingleMetricChart title="Кол-во продаж (наполненность)" data={trendWithCalc} dataKey="quantity" xKey="label"
-                color="#8b5cf6" formatTooltip={v => v.toLocaleString()} />
+                color="#8b5cf6" formatTooltip={v => v.toLocaleString()} filename={`Кол-во_продаж${yearLabel}`} />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <SingleMetricChart title="Кол-во чеков" data={trendWithCalc} dataKey="checks" xKey="label"
-                color="#06b6d4" formatTooltip={v => v.toLocaleString()} />
-              {/* Ср. чек = Выручка / Кол-во чеков */}
+                color="#06b6d4" formatTooltip={v => v.toLocaleString()} filename={`Кол-во_чеков${yearLabel}`} />
               <SingleMetricChart title="Средний чек" data={trendWithCalc} dataKey="avgCheck" xKey="label"
-                color="#f59e0b" formatTooltip={v => `${v.toLocaleString()} MDL`} />
+                color="#f59e0b" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Средний_чек${yearLabel}`} />
             </div>
-
-            {/* Валовая прибыль — отдельный график */}
             <SingleMetricChart title="Валовая прибыль" data={trendWithCalc} dataKey="grossProfit" xKey="label"
-              color="#10b981" formatTooltip={v => `${v.toLocaleString()} MDL`} />
-
-            {/* Маржа — отдельный график (Вал. прибыль / Выручка * 100) */}
+              color="#10b981" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Валовая_прибыль${yearLabel}`} />
             <SingleMetricChart title="Маржа (%)" data={trendWithCalc} dataKey="margin" xKey="label"
-              color="#ec4899" formatTooltip={v => `${v.toFixed(1)}%`} />
-
-            {/* Остальное — ТОЛЬКО поля добавленные через Google Sheets / маппинг в будущем */}
-            <MultiMetricChart
-              title="Остальное"
-              data={trendWithCalc}
-              xKey="label"
-              metrics={extraFields}
+              color="#ec4899" formatTooltip={v => `${v.toFixed(1)}%`} filename={`Маржа${yearLabel}`} />
+            <MultiMetricChart title="Остальное" data={trendWithCalc} xKey="label" metrics={extraFields}
               emptyMessage="Здесь будут отображаться дополнительные поля добавленные через Google Sheets или маппинг"
-            />
-
-            <MultiMetricChart
-              title="По годам"
-              data={yearTrend}
-              xKey="year"
+              filename={`Остальное${yearLabel}`} />
+            <MultiMetricChart title="По годам" data={yearTrend} xKey="year"
               metrics={[
                 { key: 'revenue',     name: 'Выручка',      color: '#3b82f6' },
                 { key: 'grossProfit', name: 'Вал. прибыль', color: '#10b981' },
                 { key: 'quantity',    name: 'Кол-во',       color: '#8b5cf6' },
               ]}
-            />
+              filename="По_годам" />
           </div>
         )}
 
@@ -436,10 +572,12 @@ export default function Dashboard() {
             <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
               <div className="flex justify-between items-center mb-5">
                 <h3 className="font-semibold text-lg">Доля выручки по магазинам</h3>
-                <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
-                  <input type="checkbox" checked={showStorePieLabels} onChange={() => setShowStorePieLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
-                  Значения
-                </label>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                    <input type="checkbox" checked={showStorePieLabels} onChange={() => setShowStorePieLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
+                    Значения
+                  </label>
+                </div>
               </div>
               <ResponsiveContainer width="100%" height={320}>
                 <PieChart>
@@ -451,9 +589,15 @@ export default function Dashboard() {
                   <Legend wrapperStyle={{ fontSize: 13 }} />
                 </PieChart>
               </ResponsiveContainer>
+              <div className="flex justify-end mt-3">
+                <DownloadBtn onClick={() => xlsxDownload(
+                  byStore.map(r => ({ Магазин: r.store, 'Выручка (MDL)': r.revenue })),
+                  `Доля_выручки_по_магазинам${yearLabel}`, 'Доля по магазинам'
+                )} title="Скачать доля выручки по магазинам" />
+              </div>
             </div>
             <SingleMetricChart title="Топ магазинов по выручке" data={byStore} dataKey="revenue" xKey="store"
-              color="#8b5cf6" formatTooltip={v => `${v.toLocaleString()} MDL`} />
+              color="#8b5cf6" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Топ_магазинов${yearLabel}`} />
           </div>
         )}
 

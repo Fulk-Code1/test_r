@@ -4,12 +4,51 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
+import * as XLSX from 'xlsx'
 import Navbar from '../components/Navbar'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
 const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316']
 
+// ─── Excel helpers ────────────────────────────────────────────────
+function xlsxDownload(rows: Record<string, any>[], filename: string, sheetName = 'Данные') {
+  if (!rows?.length) return
+  const ws = XLSX.utils.json_to_sheet(rows)
+  ws['!cols'] = Object.keys(rows[0]).map(k => ({
+    wch: Math.max(k.length, ...rows.map(r => String(r[k] ?? '').length)) + 2
+  }))
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31))
+  XLSX.writeFile(wb, `${filename}.xlsx`)
+}
+
+function xlsxDownloadMulti(sheets: { name: string; rows: Record<string, any>[] }[], filename: string) {
+  const wb = XLSX.utils.book_new()
+  sheets.forEach(({ name, rows }) => {
+    if (!rows?.length) return
+    const ws = XLSX.utils.json_to_sheet(rows)
+    ws['!cols'] = Object.keys(rows[0]).map(k => ({
+      wch: Math.max(k.length, ...rows.map(r => String(r[k] ?? '').length)) + 2
+    }))
+    XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31))
+  })
+  XLSX.writeFile(wb, `${filename}.xlsx`)
+}
+
+function DownloadBtn({ onClick, title }: { onClick: () => void; title?: string }) {
+  return (
+    <button onClick={onClick} title={title || 'Скачать Excel'}
+      className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-gray-700 hover:bg-green-700 text-gray-400 hover:text-white transition text-xs">
+      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+      </svg>
+      .xlsx
+    </button>
+  )
+}
+
+// ─── fmt helpers ──────────────────────────────────────────────────
 function fmt(n: number) {
   if (n >= 1_000_000) return `${(n/1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n/1_000).toFixed(0)}K`
@@ -35,7 +74,6 @@ const METRICS = [
 ]
 
 type ChartType = 'bar' | 'line' | 'bar-horizontal'
-// type ChartMode = 'one' | 'separate'
 
 interface ChartConfig {
   id: string
@@ -43,7 +81,6 @@ interface ChartConfig {
   chartType: ChartType
 }
 
-// Строим данные для графика в обычном режиме (flatResults)
 function buildChartData(flatResults: any[], metrics: string[]) {
   return flatResults.map(r => {
     const obj: any = { key: r.key }
@@ -52,7 +89,6 @@ function buildChartData(flatResults: any[], metrics: string[]) {
   })
 }
 
-// Строим данные для графика в режиме store-month
 function buildStoreMonthChartData(storeMonthData: any, metrics: string[]) {
   return storeMonthData.rows.map((row: any) => {
     const obj: any = { key: row.period }
@@ -70,17 +106,44 @@ function buildStoreMonthChartData(storeMonthData: any, metrics: string[]) {
   })
 }
 
+// ─── ChartBlock с кнопкой скачивания ─────────────────────────────
 function ChartBlock({
-  config, flatResults, storeMonthData, isStoreMonthMode, onRemove, onUpdate
+  config, flatResults, storeMonthData, isStoreMonthMode, onRemove, onUpdate, chartIndex
 }: {
-  config: ChartConfig
-  flatResults: any[]
-  storeMonthData: any
-  isStoreMonthMode: boolean
-  onRemove: () => void
-  onUpdate: (cfg: ChartConfig) => void
+  config: ChartConfig; flatResults: any[]; storeMonthData: any
+  isStoreMonthMode: boolean; onRemove: () => void
+  onUpdate: (cfg: ChartConfig) => void; chartIndex: number
 }) {
-  // const metric = METRICS.find(m => m.key === config.metrics[0])
+  const handleDownload = () => {
+    const metricLabels = config.metrics.map(k => METRICS.find(m => m.key === k)?.label || k).join('+')
+    const filename = `Сравнение_График${chartIndex + 1}_${metricLabels}`
+
+    if (isStoreMonthMode && storeMonthData) {
+      const data = buildStoreMonthChartData(storeMonthData, config.metrics)
+      const rows = data.map((r: any) => {
+        const obj: any = { Период: r.key }
+        storeMonthData.stores.forEach((s: string) => {
+          config.metrics.forEach((m: string) => {
+            const met = METRICS.find(x => x.key === m)
+            obj[`${s} — ${met?.label || m}`] = r[`${s}__${m}`] ?? 0
+          })
+        })
+        return obj
+      })
+      xlsxDownload(rows, filename, `График ${chartIndex + 1}`)
+    } else {
+      const data = buildChartData(flatResults, config.metrics)
+      const rows = data.map((r: any) => {
+        const obj: any = { Ключ: r.key }
+        config.metrics.forEach(m => {
+          const met = METRICS.find(x => x.key === m)
+          obj[met?.label || m] = r[m] ?? 0
+        })
+        return obj
+      })
+      xlsxDownload(rows, filename, `График ${chartIndex + 1}`)
+    }
+  }
 
   const renderChart = () => {
     if (isStoreMonthMode && storeMonthData) {
@@ -89,43 +152,39 @@ function ChartBlock({
       storeMonthData.stores.forEach((s: string) => {
         config.metrics.forEach((m: string) => keys.push(`${s}__${m}`))
       })
+      const ttProps = { contentStyle: { background: '#1f2937', border: '1px solid #374151' }, labelStyle: { color: '#fff' }, itemStyle: { color: '#fff' } }
 
-      if (config.chartType === 'line') {
-        return (
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="key" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-              <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
-              <Tooltip contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
-              <Legend />
-              {keys.map((k, i) => <Line key={k} type="monotone" dataKey={k} name={k.replace('__', ' — ')} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} />)}
-            </LineChart>
-          </ResponsiveContainer>
-        )
-      }
-      if (config.chartType === 'bar-horizontal') {
-        return (
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={data} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
-              <YAxis type="category" dataKey="key" stroke="#9ca3af" tick={{ fontSize: 10 }} width={80} />
-              <Tooltip contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
-              <Legend />
-              {keys.map((k, i) => <Bar key={k} dataKey={k} name={k.replace('__', ' — ')} fill={COLORS[i % COLORS.length]} radius={[0,4,4,0]} />)}
-            </BarChart>
-          </ResponsiveContainer>
-        )
-      }
-      // bar (default)
+      if (config.chartType === 'line') return (
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+            <XAxis dataKey="key" stroke="#9ca3af" tick={{ fontSize: 11 }} />
+            <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
+            <Tooltip {...ttProps} />
+            <Legend />
+            {keys.map((k, i) => <Line key={k} type="monotone" dataKey={k} name={k.replace('__', ' — ')} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} />)}
+          </LineChart>
+        </ResponsiveContainer>
+      )
+      if (config.chartType === 'bar-horizontal') return (
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={data} layout="vertical">
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+            <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
+            <YAxis type="category" dataKey="key" stroke="#9ca3af" tick={{ fontSize: 10 }} width={80} />
+            <Tooltip {...ttProps} />
+            <Legend />
+            {keys.map((k, i) => <Bar key={k} dataKey={k} name={k.replace('__', ' — ')} fill={COLORS[i % COLORS.length]} radius={[0,4,4,0]} />)}
+          </BarChart>
+        </ResponsiveContainer>
+      )
       return (
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis dataKey="key" stroke="#9ca3af" tick={{ fontSize: 11 }} />
             <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
-            <Tooltip contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
+            <Tooltip {...ttProps} />
             <Legend />
             {keys.map((k, i) => <Bar key={k} dataKey={k} name={k.replace('__', ' — ')} fill={COLORS[i % COLORS.length]} radius={[4,4,0,0]} />)}
           </BarChart>
@@ -133,51 +192,46 @@ function ChartBlock({
       )
     }
 
-    // обычный режим
     const data = buildChartData(flatResults, config.metrics)
+    const ttProps = { contentStyle: { background: '#1f2937', border: '1px solid #374151' }, labelStyle: { color: '#fff' }, itemStyle: { color: '#fff' } }
 
-    if (config.chartType === 'line') {
-      return (
-        <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey="key" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
-            <Tooltip contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
-            <Legend />
-            {config.metrics.map((m, i) => {
-              const met = METRICS.find(x => x.key === m)
-              return <Line key={m} type="monotone" dataKey={m} name={met?.label || m} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} />
-            })}
-          </LineChart>
-        </ResponsiveContainer>
-      )
-    }
-    if (config.chartType === 'bar-horizontal') {
-      return (
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={data} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
-            <YAxis type="category" dataKey="key" stroke="#9ca3af" tick={{ fontSize: 10 }} width={80} />
-            <Tooltip contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
-            <Legend />
-            {config.metrics.map((m, i) => {
-              const met = METRICS.find(x => x.key === m)
-              return <Bar key={m} dataKey={m} name={met?.label || m} fill={COLORS[i % COLORS.length]} radius={[0,4,4,0]} />
-            })}
-          </BarChart>
-        </ResponsiveContainer>
-      )
-    }
-    // bar
+    if (config.chartType === 'line') return (
+      <ResponsiveContainer width="100%" height={280}>
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+          <XAxis dataKey="key" stroke="#9ca3af" tick={{ fontSize: 11 }} />
+          <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
+          <Tooltip {...ttProps} />
+          <Legend />
+          {config.metrics.map((m, i) => {
+            const met = METRICS.find(x => x.key === m)
+            return <Line key={m} type="monotone" dataKey={m} name={met?.label || m} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} />
+          })}
+        </LineChart>
+      </ResponsiveContainer>
+    )
+    if (config.chartType === 'bar-horizontal') return (
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={data} layout="vertical">
+          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+          <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
+          <YAxis type="category" dataKey="key" stroke="#9ca3af" tick={{ fontSize: 10 }} width={80} />
+          <Tooltip {...ttProps} />
+          <Legend />
+          {config.metrics.map((m, i) => {
+            const met = METRICS.find(x => x.key === m)
+            return <Bar key={m} dataKey={m} name={met?.label || m} fill={COLORS[i % COLORS.length]} radius={[0,4,4,0]} />
+          })}
+        </BarChart>
+      </ResponsiveContainer>
+    )
     return (
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
           <XAxis dataKey="key" stroke="#9ca3af" tick={{ fontSize: 11 }} />
           <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
-          <Tooltip contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
+          <Tooltip {...ttProps} />
           <Legend />
           {config.metrics.map((m, i) => {
             const met = METRICS.find(x => x.key === m)
@@ -190,10 +244,8 @@ function ChartBlock({
 
   return (
     <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-      {/* Шапка графика */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Тип графика */}
           {(['bar','line','bar-horizontal'] as ChartType[]).map(t => (
             <button key={t} onClick={() => onUpdate({ ...config, chartType: t })}
               className={`px-3 py-1 rounded text-xs font-medium transition ${config.chartType === t ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
@@ -201,7 +253,6 @@ function ChartBlock({
             </button>
           ))}
           <span className="text-gray-600 text-xs mx-1">|</span>
-          {/* Показатели на этом графике */}
           {METRICS.map(m => (
             <button key={m.key}
               onClick={() => {
@@ -217,10 +268,15 @@ function ChartBlock({
         <button onClick={onRemove} className="text-gray-500 hover:text-red-400 text-sm transition">✕ Удалить</button>
       </div>
       {renderChart()}
+      {/* Кнопка скачивания под графиком справа */}
+      <div className="flex justify-end mt-3">
+        <DownloadBtn onClick={handleDownload} title={`Скачать данные графика ${chartIndex + 1}`} />
+      </div>
     </div>
   )
 }
 
+// ─── Compare ──────────────────────────────────────────────────────
 export default function Compare() {
   const user = JSON.parse(localStorage.getItem('user') || 'null')
   const handleLogout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login' }
@@ -254,25 +310,9 @@ export default function Compare() {
       if (selectedYears.length > 0)  params.years  = selectedYears.join(',')
       const res = await axios.get(`${API}/compare`, { params })
       setResults(res.data)
-      setCharts([]) // сброс графиков при новом сравнении
+      setCharts([])
     } catch (e) { console.error(e) }
     setLoading(false)
-  }
-
-  const addChart = () => {
-    setCharts(prev => [...prev, {
-      id: Date.now().toString(),
-      metrics: selectedMetrics.slice(0, 1),
-      chartType: 'bar'
-    }])
-  }
-
-  const updateChart = (id: string, cfg: ChartConfig) => {
-    setCharts(prev => prev.map(c => c.id === id ? cfg : c))
-  }
-
-  const removeChart = (id: string) => {
-    setCharts(prev => prev.filter(c => c.id !== id))
   }
 
   const isStoreMonthMode = !Array.isArray(results) && results?.mode === 'store-month'
@@ -280,6 +320,77 @@ export default function Compare() {
   const flatResults      = isStoreMonthMode ? [] : (Array.isArray(results) ? results : [])
   const baseItem         = flatResults[0] ?? null
   const hasResults       = flatResults.length > 0 || !!storeMonthData
+
+  // Имя файла на основе параметров
+  const modeLabel = { store: 'По_магазинам', month: 'По_месяцам', year: 'По_годам', 'store-month': 'Магазин_по_месяцам' }[mode]
+  const baseFilename = `Сравнение_${modeLabel}`
+
+  // Выгрузка таблицы сравнения
+  const downloadTable = () => {
+    if (isStoreMonthMode && storeMonthData) {
+      const sheets = METRICS.filter(m => selectedMetrics.includes(m.key)).map(metric => ({
+        name: metric.label,
+        rows: storeMonthData.rows.map((row: any) => {
+          const obj: any = { Период: row.period }
+          storeMonthData.stores.forEach((s: string) => {
+            const cell = row[s] || { revenue: 0, grossProfit: 0, quantity: 0, checks: 0 }
+            let val = 0
+            if (metric.key === 'margin') val = cell.revenue > 0 ? parseFloat(((cell.grossProfit / cell.revenue) * 100).toFixed(2)) : 0
+            else if (metric.key === 'avgCheck') val = cell.checks > 0 ? Math.round(cell.revenue / cell.checks) : 0
+            else val = cell[metric.key] ?? 0
+            obj[s] = val
+          })
+          return obj
+        })
+      }))
+      xlsxDownloadMulti(sheets, baseFilename)
+    } else {
+      const rows = METRICS.filter(m => selectedMetrics.includes(m.key)).map(metric => {
+        const obj: any = { Показатель: metric.label }
+        flatResults.forEach((r: any) => { obj[r.key] = r[metric.key] ?? 0 })
+        return obj
+      })
+      xlsxDownload(rows, baseFilename, 'Сравнение')
+    }
+  }
+
+  // Выгрузка всех графиков
+  const downloadAllCharts = () => {
+    if (charts.length === 0) return
+    const sheets = charts.map((cfg, idx) => {
+      const metricLabels = cfg.metrics.map(k => METRICS.find(m => m.key === k)?.label || k).join(', ')
+      if (isStoreMonthMode && storeMonthData) {
+        const data = buildStoreMonthChartData(storeMonthData, cfg.metrics)
+        return {
+          name: `График ${idx + 1}`,
+          rows: data.map((r: any) => {
+            const obj: any = { Период: r.key }
+            storeMonthData.stores.forEach((s: string) => {
+              cfg.metrics.forEach((m: string) => {
+                const met = METRICS.find(x => x.key === m)
+                obj[`${s} — ${met?.label || m}`] = r[`${s}__${m}`] ?? 0
+              })
+            })
+            return obj
+          })
+        }
+      } else {
+        const data = buildChartData(flatResults, cfg.metrics)
+        return {
+          name: `График ${idx + 1} (${metricLabels})`.slice(0, 31),
+          rows: data.map((r: any) => {
+            const obj: any = { Ключ: r.key }
+            cfg.metrics.forEach(m => {
+              const met = METRICS.find(x => x.key === m)
+              obj[met?.label || m] = r[m] ?? 0
+            })
+            return obj
+          })
+        }
+      }
+    })
+    xlsxDownloadMulti(sheets, `${baseFilename}_Графики`)
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -295,8 +406,6 @@ export default function Compare() {
 
         {/* Фильтры */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-
-          {/* Режим */}
           <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
             <h3 className="text-sm font-semibold mb-3 text-gray-300">Режим сравнения</h3>
             <div className="space-y-2">
@@ -314,7 +423,6 @@ export default function Compare() {
             </div>
           </div>
 
-          {/* Магазины */}
           <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
             <h3 className="text-sm font-semibold mb-3 text-gray-300">Магазины</h3>
             <div className="space-y-1 max-h-52 overflow-y-auto">
@@ -327,7 +435,6 @@ export default function Compare() {
             </div>
           </div>
 
-          {/* Месяцы + Годы */}
           <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
             <h3 className="text-sm font-semibold mb-3 text-gray-300">Месяцы</h3>
             <div className="grid grid-cols-3 gap-1 mb-4">
@@ -349,7 +456,6 @@ export default function Compare() {
             </div>
           </div>
 
-          {/* Метрики + кнопка */}
           <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
             <h3 className="text-sm font-semibold mb-3 text-gray-300">Показатели</h3>
             <div className="space-y-2">
@@ -367,7 +473,6 @@ export default function Compare() {
           </div>
         </div>
 
-        {/* Результаты */}
         {hasResults && (
           <>
             {/* Таблица — обычный режим */}
@@ -400,6 +505,10 @@ export default function Compare() {
                     ))}
                   </tbody>
                 </table>
+                {/* Кнопка скачивания таблицы */}
+                <div className="flex justify-end p-3 border-t border-gray-700">
+                  <DownloadBtn onClick={downloadTable} title="Скачать таблицу сравнения" />
+                </div>
               </div>
             )}
 
@@ -421,7 +530,7 @@ export default function Compare() {
                       METRICS.filter(m => selectedMetrics.includes(m.key)).map((metric, mi) => (
                         <tr key={`${row.period}-${metric.key}`} className="hover:bg-gray-700/30 transition">
                           {mi === 0 && (
-                            <td className="px-4 py-3 text-gray-400 font-medium align-top" rowSpan={selectedMetrics.filter(m => selectedMetrics.includes(m)).length}>
+                            <td className="px-4 py-3 text-gray-400 font-medium align-top" rowSpan={selectedMetrics.length}>
                               {row.period}
                             </td>
                           )}
@@ -449,27 +558,42 @@ export default function Compare() {
                     )}
                   </tbody>
                 </table>
+                <div className="flex justify-end p-3 border-t border-gray-700">
+                  <DownloadBtn onClick={downloadTable} title="Скачать таблицу сравнения" />
+                </div>
               </div>
             )}
 
-            {/* Графики */}
+            {/* Графики — заголовок с кнопками */}
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-300">Графики</h3>
-              <button onClick={addChart}
-                className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">
-                + Добавить график
-              </button>
+              <h3 className="font-semibold text-gray-300">📊 Графики</h3>
+              <div className="flex items-center gap-2">
+                {charts.length > 0 && (
+                  <button onClick={downloadAllCharts} title="Скачать все графики"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800 hover:bg-green-700 text-gray-400 hover:text-white transition text-sm border border-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+                    </svg>
+                    Скачать все графики
+                  </button>
+                )}
+                <button onClick={() => setCharts(prev => [...prev, { id: Date.now().toString(), metrics: selectedMetrics.slice(0, 1), chartType: 'bar' }])}
+                  className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">
+                  + Добавить график
+                </button>
+              </div>
             </div>
 
-            {charts.map(cfg => (
+            {charts.map((cfg, idx) => (
               <ChartBlock
                 key={cfg.id}
                 config={cfg}
                 flatResults={flatResults}
                 storeMonthData={storeMonthData}
                 isStoreMonthMode={isStoreMonthMode}
-                onRemove={() => removeChart(cfg.id)}
-                onUpdate={(updated) => updateChart(cfg.id, updated)}
+                onRemove={() => setCharts(prev => prev.filter(c => c.id !== cfg.id))}
+                onUpdate={(updated) => setCharts(prev => prev.map(c => c.id === cfg.id ? updated : c))}
+                chartIndex={idx}
               />
             ))}
 
