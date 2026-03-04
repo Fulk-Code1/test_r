@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts' //Legend, (in between Tooltip & ResponsiveContainer)
 import Navbar from '../components/Navbar'
 
 const API = import.meta.env.VITE_API_URL || '/api'
