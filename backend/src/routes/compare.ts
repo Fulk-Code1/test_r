@@ -24,9 +24,36 @@ router.get('/compare', async (req: Request, res: Response) => {
 
     const records = await prisma.saleRecord.findMany({ where })
 
-    // Группируем по ключу (магазин, год, месяц) в зависимости от режима
-    const mode = req.query.mode as string || 'store'
+    const mode = (req.query.mode as string) || 'store'
 
+    // ──────────────────────────────────────────────
+    // Специальный режим: строки = период (год-месяц), столбцы = магазины
+    if (mode === 'store-month') {
+      const periods: Record<string, Record<string, any>> = {}
+
+      for (const r of records) {
+        const period = `${r.year}-${String(r.month).padStart(2, '0')}`
+        if (!periods[period]) periods[period] = { period }
+        if (!periods[period][r.store]) {
+          periods[period][r.store] = { revenue: 0, grossProfit: 0, quantity: 0, checks: 0 }
+        }
+        periods[period][r.store].revenue += r.revenue
+        periods[period][r.store].grossProfit += r.grossProfit
+        periods[period][r.store].quantity += r.quantity
+        periods[period][r.store].checks += r.checks
+      }
+
+      const rows = Object.values(periods).sort((a: any, b: any) => a.period.localeCompare(b.period))
+
+      return res.json({
+        mode: 'store-month',
+        stores: storeList.length > 0 ? storeList : [...new Set(records.map(r => r.store))],
+        rows
+      })
+    }
+
+    // ──────────────────────────────────────────────
+    // Обычные режимы: store, month, year
     type Group = {
       key: string
       revenue: number
@@ -43,7 +70,6 @@ router.get('/compare', async (req: Request, res: Response) => {
       if (mode === 'store') key = r.store
       else if (mode === 'month') key = `${r.year}-${String(r.month).padStart(2, '0')}`
       else if (mode === 'year') key = String(r.year)
-      else if (mode === 'store-month') key = `${r.store} (${r.year}-${String(r.month).padStart(2, '0')})`
       else key = r.store
 
       if (!groups[key]) groups[key] = { key, revenue: 0, grossProfit: 0, quantity: 0, checks: 0, count: 0 }
