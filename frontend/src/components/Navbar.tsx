@@ -1,5 +1,5 @@
 interface NavbarProps {
-  active: 'dashboard' | 'mapping' | 'settings'
+  active: 'dashboard' | 'mapping' | 'settings' | 'compare'
   rightSlot?: React.ReactNode
   userRole?: string
 }
@@ -18,6 +18,10 @@ export default function Navbar({ active, rightSlot, userRole }: NavbarProps) {
           <a href="/mapping"
             className={`px-4 py-2 rounded-lg text-sm font-medium transition ${active === 'mapping' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
             Маппинг
+          </a>
+          <a href="/compare"
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${active === 'compare' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
+            Сравнение
           </a>
           {userRole === 'admin' && (
             <a href="/mapping/settings"

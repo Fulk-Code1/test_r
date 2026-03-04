@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import MappingDashboard from './pages/MappingDashboard'
 import MappingSettings from './pages/MappingSettings'
+import Compare from './pages/Compare'
 import Login from './pages/Login'
 
 function getUser() {
@@ -27,6 +28,7 @@ export default function App() {
       <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
       <Route path="/mapping" element={<RequireAuth><MappingDashboard /></RequireAuth>} />
       <Route path="/mapping/settings" element={<RequireAuth><RequireAdmin><MappingSettings /></RequireAdmin></RequireAuth>} />
+      <Route path="/compare" element={<RequireAuth><Compare /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   )

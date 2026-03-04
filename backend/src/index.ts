@@ -4,6 +4,7 @@ import authRoutes from './routes/auth'
 import salesRoutes from './routes/sales'
 import syncRoutes, { runSync } from './routes/sync'
 import mappingRoutes, { initSystemFields } from './routes/mapping'
+import compareRoutes from './routes/compare'
 
 const app = express()
 
@@ -14,6 +15,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/sales', salesRoutes)
 app.use('/api', syncRoutes)
 app.use('/api', mappingRoutes)
+app.use('/api', compareRoutes)
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }))
 
