@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts' //Legend, (in between Tooltip & ResponsiveContainer)
 import Navbar from '../components/Navbar'
 
 const API = import.meta.env.VITE_API_URL || '/api'
@@ -78,8 +77,8 @@ export default function Compare() {
         </>
       } />
 
-      <div className="p-6 space-y-6 max-w-7xl mx-auto">
-        <h2 className="text-xl font-bold">🔍 Сравнение</h2>
+      <div className="p-6 space-y-6 max-w-screen-2xl mx-auto">
+        <h2 className="text-xl font-bold">Сравнение</h2>
 
         {/* Фильтры */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
@@ -192,30 +191,6 @@ export default function Compare() {
                 </tbody>
               </table>
             </div>
-
-            {/* Графики */}
-            {selectedMetrics.map(metricKey => {
-              const metric = METRICS.find(m => m.key === metricKey)
-              if (!metric) return null
-              return (
-                <div key={metricKey} className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-                  <h3 className="font-semibold mb-4">{metric.label}</h3>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={results}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                      <XAxis dataKey="key" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-                      <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
-                      <Tooltip formatter={(v: any) => metric.format(Number(v))} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
-                      <Bar dataKey={metricKey} name={metric.label} radius={[4,4,0,0]}>
-                        {results.map((_, i) => (
-                          <rect key={i} fill={COLORS[i % COLORS.length]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )
-            })}
           </>
         )}
 
