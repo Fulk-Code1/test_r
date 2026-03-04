@@ -39,7 +39,7 @@ export default function Compare() {
   }
 
   const [allStores, setAllStores] = useState<string[]>([])
-  const [allYears] = useState<number[]>([])                          // setAllYears не нужен, так как эндпоинт для получения всех лет не реализован, но может быть добавлен в будущем 
+  const [allYears, setAllYears] = useState<number[]>([])                       
   const [mode, setMode] = useState<'store' | 'month' | 'year' | 'store-month'>('store')
   const [selectedStores, setSelectedStores] = useState<string[]>([])
   const [selectedMonths, setSelectedMonths] = useState<number[]>([])
@@ -50,7 +50,7 @@ export default function Compare() {
 
   useEffect(() => {
     axios.get(`${API}/compare/stores`).then(r => setAllStores(r.data))
-    // axios.get(`${API}/sales/years`).then(r => setAllYears(r.data))  // ← если эндпоинт существует
+    axios.get(`${API}/sales/years`).then(r => setAllYears(r.data))
   }, [])
 
   const toggleItem = (arr: any[], setArr: any, val: any) => {
