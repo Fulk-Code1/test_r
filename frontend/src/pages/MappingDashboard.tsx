@@ -23,12 +23,261 @@ function fmtShort(n: number) {
 }
 function fmtPct(n: number) { return `${n.toFixed(1)}%` }
 
-function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
+type ChartType = 'line' | 'bar' | 'bar-horizontal'
+
+const ttStyle = { background: '#1f2937', border: '1px solid #374151', fontSize: 13 }
+const ttProps = { contentStyle: ttStyle, labelStyle: { color: '#fff', fontSize: 13 }, itemStyle: { color: '#fff', fontSize: 13 } }
+
+function ChartTypeSwitcher({ value, onChange }: { value: ChartType; onChange: (t: ChartType) => void }) {
   return (
-    <label className="flex items-center gap-2 text-gray-400 text-xs cursor-pointer select-none">
-      <input type="checkbox" checked={checked} onChange={onChange} className="w-3.5 h-3.5 accent-blue-500 cursor-pointer" />
-      {label}
-    </label>
+    <div className="flex gap-1">
+      {(['line','bar','bar-horizontal'] as ChartType[]).map(t => (
+        <button key={t} onClick={() => onChange(t)}
+          className={`px-3 py-1.5 rounded text-sm transition ${value === t ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>
+          {t === 'line' ? 'Линейный' : t === 'bar' ? 'Столбцы' : 'Горизонтальные'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function SingleMetricChart({
+  title, data, dataKey, xKey, color, formatTooltip
+}: {
+  title: string
+  data: any[]
+  dataKey: string
+  xKey: string
+  color: string
+  formatTooltip: (v: number) => string
+}) {
+  const [chartType, setChartType] = useState<ChartType>('line')
+  const [showLabels, setShowLabels] = useState(false)
+  const [showAllHorizontal, setShowAllHorizontal] = useState(false)
+
+  const preparedData = chartType === 'bar-horizontal'
+    ? [...data]
+        .sort((a, b) => (b[dataKey] || 0) - (a[dataKey] || 0))
+        .slice(0, showAllHorizontal ? data.length : 10)
+    : data
+
+  const rowHeight = 42
+  const headerHeight = 90
+  const dynamicHeight = chartType === 'bar-horizontal'
+    ? headerHeight + preparedData.length * rowHeight
+    : 320
+
+  const barSize = chartType === 'bar-horizontal'
+    ? (showAllHorizontal ? 16 : 28)
+    : undefined
+
+  const strokeWidth = chartType === 'bar-horizontal'
+    ? (showAllHorizontal ? 0.5 : 1.5)
+    : undefined
+
+  const labelEl = showLabels ? (
+    <LabelList dataKey={dataKey} position={chartType === 'bar-horizontal' ? 'right' : 'top'}
+      formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: color }} />
+  ) : null
+
+  const xInterval = Math.floor(data.length / 10)
+
+  return (
+    <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <h3 className="font-semibold text-lg">{title}</h3>
+        <div className="flex items-center gap-3 flex-wrap">
+          <ChartTypeSwitcher value={chartType} onChange={setChartType} />
+          <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+            <input type="checkbox" checked={showLabels} onChange={() => setShowLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
+            Значения
+          </label>
+          {chartType === 'bar-horizontal' && data.length > 10 && (
+            <button
+              onClick={() => setShowAllHorizontal(!showAllHorizontal)}
+              className="px-3 py-1.5 rounded text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 transition"
+            >
+              {showAllHorizontal ? 'Свернуть до топ-10' : 'Показать все'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <ResponsiveContainer width="100%" height={dynamicHeight}>
+        {chartType === 'line' && (
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+            <XAxis dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
+            <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+            <Tooltip formatter={(v: any) => formatTooltip(Number(v))} {...ttProps} />
+            <Legend wrapperStyle={{ fontSize: 13 }} />
+            <Line type="monotone" dataKey={dataKey} name={title} stroke={color} strokeWidth={2.5} dot={false}>
+              {labelEl}
+            </Line>
+          </LineChart>
+        )}
+
+        {chartType === 'bar' && (
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+            <XAxis dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
+            <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+            <Tooltip formatter={(v: any) => formatTooltip(Number(v))} {...ttProps} />
+            <Legend wrapperStyle={{ fontSize: 13 }} />
+            <Bar dataKey={dataKey} name={title} fill={color} radius={[5,5,0,0]}>{labelEl}</Bar>
+          </BarChart>
+        )}
+
+        {chartType === 'bar-horizontal' && (
+          <BarChart data={preparedData} layout="vertical" barSize={barSize} barCategoryGap={8}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+            <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+            <YAxis type="category" dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} width={80} interval={0} />
+            <Tooltip formatter={(v: any) => formatTooltip(Number(v))} {...ttProps} />
+            <Legend wrapperStyle={{ fontSize: 13 }} />
+            <Bar 
+              dataKey={dataKey} 
+              name={title} 
+              fill={color} 
+              radius={[0,6,6,0]}
+              stroke="#64748b"
+              strokeWidth={strokeWidth}
+            >
+              {labelEl}
+            </Bar>
+          </BarChart>
+        )}
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+function MultiMetricChart({
+  title, data, xKey, metrics
+}: {
+  title: string
+  data: any[]
+  xKey: string
+  metrics: { key: string; name: string; color: string }[]
+}) {
+  const [chartType, setChartType] = useState<ChartType>('line')
+  const [active, setActive] = useState<string[]>(metrics.map(m => m.key))
+  const [showLabels, setShowLabels] = useState(false)
+  const [showAllHorizontal, setShowAllHorizontal] = useState(false)
+
+  const toggle = (key: string) =>
+    setActive(prev => prev.includes(key) ? (prev.length > 1 ? prev.filter(k => k !== key) : prev) : [...prev, key])
+
+  const visibleMetrics = metrics.filter(m => active.includes(m.key))
+
+  const firstActiveKey = visibleMetrics[0]?.key
+  const preparedData = chartType === 'bar-horizontal' && firstActiveKey
+    ? [...data]
+        .sort((a, b) => (b[firstActiveKey] || 0) - (a[firstActiveKey] || 0))
+        .slice(0, showAllHorizontal ? data.length : 10)
+    : data
+
+  const rowHeight = 45
+  const headerHeight = 100
+  const dynamicHeight = chartType === 'bar-horizontal'
+    ? headerHeight + preparedData.length * rowHeight
+    : 340
+
+  const barSize = chartType === 'bar-horizontal'
+    ? (showAllHorizontal ? 16 : 28)
+    : undefined
+
+  const strokeWidth = chartType === 'bar-horizontal'
+    ? (showAllHorizontal ? 0.5 : 1.5)
+    : undefined
+
+  const xInterval = Math.floor(data.length / 10)
+
+  const axes = (
+    <>
+      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+      <XAxis dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
+      <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+      <Tooltip formatter={(v: any) => Number(v).toLocaleString()} {...ttProps} />
+      <Legend wrapperStyle={{ fontSize: 13 }} />
+    </>
+  )
+
+  return (
+    <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <h3 className="font-semibold text-lg">{title}</h3>
+        <div className="flex items-center gap-3 flex-wrap">
+          <ChartTypeSwitcher value={chartType} onChange={setChartType} />
+          {metrics.map(m => (
+            <button key={m.key} onClick={() => toggle(m.key)}
+              style={{
+                background: active.includes(m.key) ? m.color + '22' : '#374151',
+                color: active.includes(m.key) ? m.color : '#d1d5db',
+                border: `1px solid ${active.includes(m.key) ? m.color : 'transparent'}`
+              }}
+              className="px-3 py-1.5 rounded text-sm transition">
+              {m.name}
+            </button>
+          ))}
+          <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+            <input type="checkbox" checked={showLabels} onChange={() => setShowLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
+            Значения
+          </label>
+          {chartType === 'bar-horizontal' && data.length > 10 && (
+            <button
+              onClick={() => setShowAllHorizontal(!showAllHorizontal)}
+              className="px-3 py-1.5 rounded text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 transition"
+            >
+              {showAllHorizontal ? 'Свернуть до топ-10' : 'Показать все'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <ResponsiveContainer width="100%" height={dynamicHeight}>
+        {chartType === 'line' && (
+          <LineChart data={data}>
+            {axes}
+            {visibleMetrics.map(m => (
+              <Line key={m.key} type="monotone" dataKey={m.key} name={m.name} stroke={m.color} strokeWidth={2.5} dot={false}>
+                {showLabels && <LabelList dataKey={m.key} position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+              </Line>
+            ))}
+          </LineChart>
+        )}
+
+        {chartType === 'bar' && (
+          <BarChart data={data}>
+            {axes}
+            {visibleMetrics.map(m => (
+              <Bar key={m.key} dataKey={m.key} name={m.name} fill={m.color} radius={[5,5,0,0]}>
+                {showLabels && <LabelList dataKey={m.key} position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+              </Bar>
+            ))}
+          </BarChart>
+        )}
+
+        {chartType === 'bar-horizontal' && (
+          <BarChart data={preparedData} layout="vertical" barSize={barSize} barCategoryGap={8}>
+            {axes}
+            {visibleMetrics.map(m => (
+              <Bar 
+                key={m.key} 
+                dataKey={m.key} 
+                name={m.name} 
+                fill={m.color} 
+                radius={[0,6,6,0]}
+                stroke="#64748b"
+                strokeWidth={strokeWidth}
+              >
+                {showLabels && <LabelList dataKey={m.key} position="right" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+              </Bar>
+            ))}
+          </BarChart>
+        )}
+      </ResponsiveContainer>
+    </div>
   )
 }
 
@@ -49,8 +298,7 @@ export default function MappingDashboard() {
   const [years, setYears] = useState<number[]>([])
   const [selectedYear, setSelectedYear] = useState<string>('')
   const [hasMappings, setHasMappings] = useState(true)
-  const [showLabels, setShowLabels] = useState({ trend: false, yearBar: false, storePie: false, storeBar: false })
-  const toggleLabel = (key: keyof typeof showLabels) => setShowLabels(prev => ({ ...prev, [key]: !prev[key] }))
+  const [showStorePieLabels, setShowStorePieLabels] = useState(false)
 
   const fetchAll = useCallback(async () => {
     try {
@@ -89,13 +337,19 @@ export default function MappingDashboard() {
     setSyncing(true)
     try {
       const res = await axios.post(`${API}/sync`)
-      await fetchAll(); await fetchTable()
+      await fetchAll()
+      await fetchTable()
       setSyncResult(res.data)
     } catch (e: any) {
       alert('Ошибка: ' + (e.response?.data?.error || e.message))
     }
     setSyncing(false)
   }
+
+  const trendWithAvg = trend.map(r => ({
+    ...r,
+    avgCheck: r.checks > 0 ? Math.round(r.revenue / r.checks) : 0
+  }))
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -150,89 +404,68 @@ export default function MappingDashboard() {
         </div>
 
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="font-semibold">Выручка и прибыль по месяцам</h3>
-                <Checkbox label="Значения" checked={showLabels.trend} onChange={() => toggleLabel('trend')} />
-              </div>
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={trend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 11 }} interval={Math.floor(trend.length / 10)} />
-                  <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}K`} />
-                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
-                  <Legend />
-                  <Line type="monotone" dataKey="revenue" name="Выручка" stroke="#3b82f6" strokeWidth={2} dot={false}>
-                    {showLabels.trend && <LabelList dataKey="revenue" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 9, fill: '#93c5fd' }} />}
-                  </Line>
-                  <Line type="monotone" dataKey="grossProfit" name="Вал. прибыль" stroke="#10b981" strokeWidth={2} dot={false}>
-                    {showLabels.trend && <LabelList dataKey="grossProfit" position="bottom" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 9, fill: '#6ee7b7' }} />}
-                  </Line>
-                </LineChart>
-              </ResponsiveContainer>
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SingleMetricChart title="Выручка" data={trendWithAvg} dataKey="revenue" xKey="label"
+                color="#3b82f6" formatTooltip={v => `${v.toLocaleString()} MDL`} />
+              <SingleMetricChart title="Валовая прибыль" data={trendWithAvg} dataKey="grossProfit" xKey="label"
+                color="#10b981" formatTooltip={v => `${v.toLocaleString()} MDL`} />
             </div>
 
-            <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="font-semibold">Выручка и прибыль по годам</h3>
-                <Checkbox label="Значения" checked={showLabels.yearBar} onChange={() => toggleLabel('yearBar')} />
-              </div>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={yearTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="year" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-                  <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000000).toFixed(1)}M`} />
-                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
-                  <Legend />
-                  <Bar dataKey="revenue" name="Выручка" fill="#3b82f6" radius={[4,4,0,0]}>
-                    {showLabels.yearBar && <LabelList dataKey="revenue" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: '#93c5fd' }} />}
-                  </Bar>
-                  <Bar dataKey="grossProfit" name="Вал. прибыль" fill="#10b981" radius={[4,4,0,0]}>
-                    {showLabels.yearBar && <LabelList dataKey="grossProfit" position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: '#6ee7b7' }} />}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SingleMetricChart title="Средний чек" data={trendWithAvg} dataKey="avgCheck" xKey="label"
+                color="#f59e0b" formatTooltip={v => `${v.toLocaleString()} MDL`} />
+              <SingleMetricChart title="Кол-во чеков" data={trendWithAvg} dataKey="checks" xKey="label"
+                color="#06b6d4" formatTooltip={v => v.toLocaleString()} />
             </div>
+
+            <SingleMetricChart title="Кол-во продаж (наполненность)" data={trendWithAvg} dataKey="quantity" xKey="label"
+              color="#8b5cf6" formatTooltip={v => v.toLocaleString()} />
+
+            <MultiMetricChart
+              title="По годам"
+              data={yearTrend}
+              xKey="year"
+              metrics={[
+                { key: 'revenue',     name: 'Выручка',      color: '#3b82f6' },
+                { key: 'grossProfit', name: 'Вал. прибыль', color: '#10b981' },
+                { key: 'quantity',    name: 'Кол-во',       color: '#8b5cf6' },
+              ]}
+            />
+
+            <MultiMetricChart
+              title="Остальное"
+              data={trendWithAvg}
+              xKey="label"
+              metrics={[]}
+            />
           </div>
         )}
 
         {activeTab === 'breakdown' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="font-semibold">Доля выручки по магазинам</h3>
-                <Checkbox label="Значения" checked={showLabels.storePie} onChange={() => toggleLabel('storePie')} />
+            <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+              <div className="flex justify-between items-center mb-5">
+                <h3 className="font-semibold text-lg">Доля выручки по магазинам</h3>
+                <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                  <input type="checkbox" checked={showStorePieLabels} onChange={() => setShowStorePieLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
+                  Значения
+                </label>
               </div>
-              <ResponsiveContainer width="100%" height={280}>
+              <ResponsiveContainer width="100%" height={320}>
                 <PieChart>
-                  <Pie data={byStore} dataKey="revenue" nameKey="store" cx="50%" cy="50%" outerRadius={100}
-                    label={showLabels.storePie ? ({ payload, percent }) => `${payload.store} ${((percent ?? 0)*100).toFixed(0)}%` : false}>
+                  <Pie data={byStore} dataKey="revenue" nameKey="store" cx="50%" cy="50%" outerRadius={110}
+                    label={showStorePieLabels ? ({ payload, percent }) => `${payload.store} ${((percent ?? 0)*100).toFixed(0)}%` : false}>
                     {byStore.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
-                  <Legend />
+                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} {...ttProps} />
+                  <Legend wrapperStyle={{ fontSize: 13 }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
 
-            <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="font-semibold">Топ магазинов по выручке</h3>
-                <Checkbox label="Значения" checked={showLabels.storeBar} onChange={() => toggleLabel('storeBar')} />
-              </div>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={byStore} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}K`} />
-                  <YAxis type="category" dataKey="store" stroke="#9ca3af" tick={{ fontSize: 10 }} width={70} />
-                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151' }} labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
-                  <Bar dataKey="revenue" name="Выручка" fill="#8b5cf6" radius={[0,4,4,0]}>
-                    {showLabels.storeBar && <LabelList dataKey="revenue" position="right" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: '#c4b5fd' }} />}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <SingleMetricChart title="Топ магазинов по выручке" data={byStore} dataKey="revenue" xKey="store"
+              color="#8b5cf6" formatTooltip={v => `${v.toLocaleString()} MDL`} />
           </div>
         )}
 
