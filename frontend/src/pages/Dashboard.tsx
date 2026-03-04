@@ -52,6 +52,7 @@ function SingleMetricChart({
 }) {
   const [chartType, setChartType] = useState<ChartType>('line')
   const [showLabels, setShowLabels] = useState(false)
+  const [showDots, setShowDots] = useState(false)  // ← по умолчанию выключены
   const [showAllHorizontal, setShowAllHorizontal] = useState(false)
 
   const preparedData = chartType === 'bar-horizontal'
@@ -87,10 +88,19 @@ function SingleMetricChart({
         <h3 className="font-semibold text-lg">{title}</h3>
         <div className="flex items-center gap-3 flex-wrap">
           <ChartTypeSwitcher value={chartType} onChange={setChartType} />
+
           <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
             <input type="checkbox" checked={showLabels} onChange={() => setShowLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
             Значения
           </label>
+
+          {chartType === 'line' && (
+            <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input type="checkbox" checked={showDots} onChange={() => setShowDots(v => !v)} className="accent-blue-500 w-4 h-4" />
+              Точки
+            </label>
+          )}
+
           {chartType === 'bar-horizontal' && data.length > 10 && (
             <button
               onClick={() => setShowAllHorizontal(!showAllHorizontal)}
@@ -110,7 +120,14 @@ function SingleMetricChart({
             <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
             <Tooltip formatter={(v: any) => formatTooltip(Number(v))} {...ttProps} />
             <Legend wrapperStyle={{ fontSize: 13 }} />
-            <Line type="monotone" dataKey={dataKey} name={title} stroke={color} strokeWidth={2.5} dot={false}>
+            <Line 
+              type="monotone" 
+              dataKey={dataKey} 
+              name={title} 
+              stroke={color} 
+              strokeWidth={2.5} 
+              dot={showDots ? { stroke: color, strokeWidth: 2, r: 4 } : false}
+            >
               {labelEl}
             </Line>
           </LineChart>
@@ -162,6 +179,7 @@ function MultiMetricChart({
   const [chartType, setChartType] = useState<ChartType>('line')
   const [active, setActive] = useState<string[]>(metrics.map(m => m.key))
   const [showLabels, setShowLabels] = useState(false)
+  const [showDots, setShowDots] = useState(false)  // ← по умолчанию выключены
   const [showAllHorizontal, setShowAllHorizontal] = useState(false)
 
   const toggle = (key: string) =>
@@ -223,6 +241,14 @@ function MultiMetricChart({
             <input type="checkbox" checked={showLabels} onChange={() => setShowLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
             Значения
           </label>
+
+          {chartType === 'line' && (
+            <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input type="checkbox" checked={showDots} onChange={() => setShowDots(v => !v)} className="accent-blue-500 w-4 h-4" />
+              Точки
+            </label>
+          )}
+
           {chartType === 'bar-horizontal' && data.length > 10 && (
             <button
               onClick={() => setShowAllHorizontal(!showAllHorizontal)}
@@ -239,7 +265,15 @@ function MultiMetricChart({
           <LineChart data={data}>
             {axes}
             {visibleMetrics.map(m => (
-              <Line key={m.key} type="monotone" dataKey={m.key} name={m.name} stroke={m.color} strokeWidth={2.5} dot={false}>
+              <Line 
+                key={m.key} 
+                type="monotone" 
+                dataKey={m.key} 
+                name={m.name} 
+                stroke={m.color} 
+                strokeWidth={2.5} 
+                dot={showDots ? { stroke: m.color, strokeWidth: 2, r: 4 } : false}
+              >
                 {showLabels && <LabelList dataKey={m.key} position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
               </Line>
             ))}
