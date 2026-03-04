@@ -11,6 +11,9 @@ const API = import.meta.env.VITE_API_URL || '/api'
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316', '#14b8a6', '#a855f7']
 const MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
 
+// Поля которые НИКОГДА не попадают в "Остальное" — у них свои отдельные графики
+const EXCLUDED_FROM_EXTRA = new Set(['revenue', 'quantity', 'checks', 'avgCheck', 'grossProfit', 'margin', 'label', 'year', 'month'])
+
 function fmt(n: number) {
   if (n >= 1_000_000) return `${(n/1_000_000).toFixed(1)}M MDL`
   if (n >= 1_000) return `${(n/1_000).toFixed(0)}K MDL`
@@ -21,6 +24,7 @@ function fmtShort(n: number) {
   if (n >= 1_000) return `${(n/1_000).toFixed(0)}K`
   return `${n.toFixed(0)}`
 }
+function fmtPct(n: number) { return `${n.toFixed(1)}%` }
 
 type ChartType = 'line' | 'bar' | 'bar-horizontal'
 
@@ -40,46 +44,25 @@ function ChartTypeSwitcher({ value, onChange }: { value: ChartType; onChange: (t
   )
 }
 
-function SingleMetricChart({
-  title, data, dataKey, xKey, color, formatTooltip
-}: {
-  title: string
-  data: any[]
-  dataKey: string
-  xKey: string
-  color: string
-  formatTooltip: (v: number) => string
+function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip }: {
+  title: string; data: any[]; dataKey: string; xKey: string; color: string; formatTooltip: (v: number) => string
 }) {
   const [chartType, setChartType] = useState<ChartType>('line')
   const [showLabels, setShowLabels] = useState(false)
-  const [showDots, setShowDots] = useState(false)  // ← по умолчанию выключены
+  const [showDots, setShowDots] = useState(false)
   const [showAllHorizontal, setShowAllHorizontal] = useState(false)
 
   const preparedData = chartType === 'bar-horizontal'
-    ? [...data]
-        .sort((a, b) => (b[dataKey] || 0) - (a[dataKey] || 0))
-        .slice(0, showAllHorizontal ? data.length : 10)
+    ? [...data].sort((a, b) => (b[dataKey] || 0) - (a[dataKey] || 0)).slice(0, showAllHorizontal ? data.length : 10)
     : data
 
-  const rowHeight = 42
-  const headerHeight = 90
-  const dynamicHeight = chartType === 'bar-horizontal'
-    ? headerHeight + preparedData.length * rowHeight
-    : 320
-
-  const barSize = chartType === 'bar-horizontal'
-    ? (showAllHorizontal ? 16 : 28)
-    : undefined
-
-  const strokeWidth = chartType === 'bar-horizontal'
-    ? (showAllHorizontal ? 0.5 : 1.5)
-    : undefined
-
+  const dynamicHeight = chartType === 'bar-horizontal' ? 90 + preparedData.length * 42 : 320
+  const barSize = chartType === 'bar-horizontal' ? (showAllHorizontal ? 16 : 28) : undefined
+  const strokeWidth = chartType === 'bar-horizontal' ? (showAllHorizontal ? 0.5 : 1.5) : undefined
   const labelEl = showLabels ? (
     <LabelList dataKey={dataKey} position={chartType === 'bar-horizontal' ? 'right' : 'top'}
       formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: color }} />
   ) : null
-
   const xInterval = Math.floor(data.length / 10)
 
   return (
@@ -88,52 +71,36 @@ function SingleMetricChart({
         <h3 className="font-semibold text-lg">{title}</h3>
         <div className="flex items-center gap-3 flex-wrap">
           <ChartTypeSwitcher value={chartType} onChange={setChartType} />
-
           <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
             <input type="checkbox" checked={showLabels} onChange={() => setShowLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
             Значения
           </label>
-
           {chartType === 'line' && (
             <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
               <input type="checkbox" checked={showDots} onChange={() => setShowDots(v => !v)} className="accent-blue-500 w-4 h-4" />
               Точки
             </label>
           )}
-
           {chartType === 'bar-horizontal' && data.length > 10 && (
-            <button
-              onClick={() => setShowAllHorizontal(!showAllHorizontal)}
-              className="px-3 py-1.5 rounded text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 transition"
-            >
+            <button onClick={() => setShowAllHorizontal(!showAllHorizontal)}
+              className="px-3 py-1.5 rounded text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 transition">
               {showAllHorizontal ? 'Свернуть до топ-10' : 'Показать все'}
             </button>
           )}
         </div>
       </div>
-
       <ResponsiveContainer width="100%" height={dynamicHeight}>
-        {chartType === 'line' && (
+        {chartType === 'line' ? (
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
             <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
             <Tooltip formatter={(v: any) => formatTooltip(Number(v))} {...ttProps} />
             <Legend wrapperStyle={{ fontSize: 13 }} />
-            <Line 
-              type="monotone" 
-              dataKey={dataKey} 
-              name={title} 
-              stroke={color} 
-              strokeWidth={2.5} 
-              dot={showDots ? { stroke: color, strokeWidth: 2, r: 4 } : false}
-            >
-              {labelEl}
-            </Line>
+            <Line type="monotone" dataKey={dataKey} name={title} stroke={color} strokeWidth={2.5}
+              dot={showDots ? { stroke: color, strokeWidth: 2, r: 4 } : false}>{labelEl}</Line>
           </LineChart>
-        )}
-
-        {chartType === 'bar' && (
+        ) : chartType === 'bar' ? (
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
@@ -142,25 +109,14 @@ function SingleMetricChart({
             <Legend wrapperStyle={{ fontSize: 13 }} />
             <Bar dataKey={dataKey} name={title} fill={color} radius={[5,5,0,0]}>{labelEl}</Bar>
           </BarChart>
-        )}
-
-        {chartType === 'bar-horizontal' && (
+        ) : (
           <BarChart data={preparedData} layout="vertical" barSize={barSize} barCategoryGap={8}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
             <YAxis type="category" dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} width={80} interval={0} />
             <Tooltip formatter={(v: any) => formatTooltip(Number(v))} {...ttProps} />
             <Legend wrapperStyle={{ fontSize: 13 }} />
-            <Bar 
-              dataKey={dataKey} 
-              name={title} 
-              fill={color} 
-              radius={[0,6,6,0]}
-              stroke="#64748b"
-              strokeWidth={strokeWidth}
-            >
-              {labelEl}
-            </Bar>
+            <Bar dataKey={dataKey} name={title} fill={color} radius={[0,6,6,0]} stroke="#64748b" strokeWidth={strokeWidth}>{labelEl}</Bar>
           </BarChart>
         )}
       </ResponsiveContainer>
@@ -168,47 +124,41 @@ function SingleMetricChart({
   )
 }
 
-function MultiMetricChart({
-  title, data, xKey, metrics
-}: {
-  title: string
-  data: any[]
-  xKey: string
+function MultiMetricChart({ title, data, xKey, metrics, emptyMessage }: {
+  title: string; data: any[]; xKey: string
   metrics: { key: string; name: string; color: string }[]
+  emptyMessage?: string
 }) {
   const [chartType, setChartType] = useState<ChartType>('line')
   const [active, setActive] = useState<string[]>(metrics.map(m => m.key))
   const [showLabels, setShowLabels] = useState(false)
-  const [showDots, setShowDots] = useState(false)  // ← по умолчанию выключены
+  const [showDots, setShowDots] = useState(false)
   const [showAllHorizontal, setShowAllHorizontal] = useState(false)
+
+  useEffect(() => { setActive(metrics.map(m => m.key)) }, [metrics.map(m => m.key).join(',')])
 
   const toggle = (key: string) =>
     setActive(prev => prev.includes(key) ? (prev.length > 1 ? prev.filter(k => k !== key) : prev) : [...prev, key])
 
   const visibleMetrics = metrics.filter(m => active.includes(m.key))
-
   const firstActiveKey = visibleMetrics[0]?.key
   const preparedData = chartType === 'bar-horizontal' && firstActiveKey
-    ? [...data]
-        .sort((a, b) => (b[firstActiveKey] || 0) - (a[firstActiveKey] || 0))
-        .slice(0, showAllHorizontal ? data.length : 10)
+    ? [...data].sort((a, b) => (b[firstActiveKey] || 0) - (a[firstActiveKey] || 0)).slice(0, showAllHorizontal ? data.length : 10)
     : data
 
-  const rowHeight = 45
-  const headerHeight = 100
-  const dynamicHeight = chartType === 'bar-horizontal'
-    ? headerHeight + preparedData.length * rowHeight
-    : 340
-
-  const barSize = chartType === 'bar-horizontal'
-    ? (showAllHorizontal ? 16 : 28)
-    : undefined
-
-  const strokeWidth = chartType === 'bar-horizontal'
-    ? (showAllHorizontal ? 0.5 : 1.5)
-    : undefined
-
+  const dynamicHeight = chartType === 'bar-horizontal' ? 100 + preparedData.length * 45 : 340
+  const barSize = chartType === 'bar-horizontal' ? (showAllHorizontal ? 16 : 28) : undefined
+  const strokeWidth = chartType === 'bar-horizontal' ? (showAllHorizontal ? 0.5 : 1.5) : undefined
   const xInterval = Math.floor(data.length / 10)
+
+  if (metrics.length === 0) return (
+    <div className="bg-gray-800 rounded-xl p-6 border border-dashed border-gray-600">
+      <h3 className="font-semibold text-lg mb-3">{title}</h3>
+      <p className="text-gray-500 text-sm text-center py-6">
+        {emptyMessage || 'Данные появятся после добавления дополнительных полей'}
+      </p>
+    </div>
+  )
 
   const axes = (
     <>
@@ -233,54 +183,39 @@ function MultiMetricChart({
                 color: active.includes(m.key) ? m.color : '#d1d5db',
                 border: `1px solid ${active.includes(m.key) ? m.color : 'transparent'}`
               }}
-              className="px-3 py-1.5 rounded text-sm transition">
-              {m.name}
+              className="px-3 py-1.5 rounded text-sm transition">{m.name}
             </button>
           ))}
           <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
             <input type="checkbox" checked={showLabels} onChange={() => setShowLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
             Значения
           </label>
-
           {chartType === 'line' && (
             <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
               <input type="checkbox" checked={showDots} onChange={() => setShowDots(v => !v)} className="accent-blue-500 w-4 h-4" />
               Точки
             </label>
           )}
-
           {chartType === 'bar-horizontal' && data.length > 10 && (
-            <button
-              onClick={() => setShowAllHorizontal(!showAllHorizontal)}
-              className="px-3 py-1.5 rounded text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 transition"
-            >
+            <button onClick={() => setShowAllHorizontal(!showAllHorizontal)}
+              className="px-3 py-1.5 rounded text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 transition">
               {showAllHorizontal ? 'Свернуть до топ-10' : 'Показать все'}
             </button>
           )}
         </div>
       </div>
-
       <ResponsiveContainer width="100%" height={dynamicHeight}>
-        {chartType === 'line' && (
+        {chartType === 'line' ? (
           <LineChart data={data}>
             {axes}
             {visibleMetrics.map(m => (
-              <Line 
-                key={m.key} 
-                type="monotone" 
-                dataKey={m.key} 
-                name={m.name} 
-                stroke={m.color} 
-                strokeWidth={2.5} 
-                dot={showDots ? { stroke: m.color, strokeWidth: 2, r: 4 } : false}
-              >
+              <Line key={m.key} type="monotone" dataKey={m.key} name={m.name} stroke={m.color} strokeWidth={2.5}
+                dot={showDots ? { stroke: m.color, strokeWidth: 2, r: 4 } : false}>
                 {showLabels && <LabelList dataKey={m.key} position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
               </Line>
             ))}
           </LineChart>
-        )}
-
-        {chartType === 'bar' && (
+        ) : chartType === 'bar' ? (
           <BarChart data={data}>
             {axes}
             {visibleMetrics.map(m => (
@@ -289,21 +224,11 @@ function MultiMetricChart({
               </Bar>
             ))}
           </BarChart>
-        )}
-
-        {chartType === 'bar-horizontal' && (
+        ) : (
           <BarChart data={preparedData} layout="vertical" barSize={barSize} barCategoryGap={8}>
             {axes}
             {visibleMetrics.map(m => (
-              <Bar 
-                key={m.key} 
-                dataKey={m.key} 
-                name={m.name} 
-                fill={m.color} 
-                radius={[0,6,6,0]}
-                stroke="#64748b"
-                strokeWidth={strokeWidth}
-              >
+              <Bar key={m.key} dataKey={m.key} name={m.name} fill={m.color} radius={[0,6,6,0]} stroke="#64748b" strokeWidth={strokeWidth}>
                 {showLabels && <LabelList dataKey={m.key} position="right" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
               </Bar>
             ))}
@@ -317,6 +242,7 @@ function MultiMetricChart({
 export default function Dashboard() {
   const user = JSON.parse(localStorage.getItem('user') || 'null')
   const handleLogout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login' }
+
   const [kpi, setKpi] = useState<any>(null)
   const [trend, setTrend] = useState<any[]>([])
   const [byStore, setByStore] = useState<any[]>([])
@@ -331,19 +257,36 @@ export default function Dashboard() {
   const [years, setYears] = useState<number[]>([])
   const [selectedYear, setSelectedYear] = useState<string>('')
   const [showStorePieLabels, setShowStorePieLabels] = useState(false)
+  const [hasMappings, setHasMappings] = useState(true)
+  // Только поля из Google Sheets / маппинга — БЕЗ grossProfit и margin
+  const [extraFields, setExtraFields] = useState<{ key: string; name: string; color: string }[]>([])
 
   const fetchAll = useCallback(async () => {
     try {
       const yParam = selectedYear ? `?year=${selectedYear}` : ''
-      const [kpiR, trendR, storeR, yearR, yearsR] = await Promise.all([
+      const [kpiR, trendR, storeR, yearR, yearsR, mappingR] = await Promise.all([
         axios.get(`${API}/sales/kpi${yParam}`),
         axios.get(`${API}/sales/trend${yParam}`),
         axios.get(`${API}/sales/by-store${yParam}`),
         axios.get(`${API}/sales/by-year`),
         axios.get(`${API}/sales/years`),
+        axios.get(`${API}/mapping`),
       ])
-      setKpi(kpiR.data); setTrend(trendR.data); setByStore(storeR.data)
-      setYearTrend(yearR.data); setYears(yearsR.data)
+      setKpi(kpiR.data)
+      setTrend(trendR.data)
+      setByStore(storeR.data)
+      setYearTrend(yearR.data)
+      setYears(yearsR.data)
+      setHasMappings(mappingR.data.length > 0)
+
+      // Определяем кастомные поля: всё что есть в тренде, кроме стандартных и grossProfit/margin
+      const sample = trendR.data[0] || {}
+      const dynamicKeys = Object.keys(sample).filter(k => !EXCLUDED_FROM_EXTRA.has(k))
+      setExtraFields(dynamicKeys.map((k, i) => ({
+        key: k,
+        name: k,
+        color: COLORS[i % COLORS.length]
+      })))
     } catch { console.error('fetch error') }
   }, [selectedYear])
 
@@ -369,10 +312,22 @@ export default function Dashboard() {
     setSyncing(false)
   }
 
-  const trendWithAvg = trend.map(r => ({
+  const trendWithCalc = trend.map(r => ({
     ...r,
-    avgCheck: r.checks > 0 ? Math.round(r.revenue / r.checks) : 0
+    avgCheck: r.checks > 0 ? Math.round(r.revenue / r.checks) : 0,
+    // Маржа = Вал. прибыль / Выручка * 100
+    margin: r.revenue > 0 ? (r.grossProfit / r.revenue) * 100 : 0,
   }))
+
+  const kpiCards = kpi ? [
+    { label: 'Выручка',       value: fmt(kpi.totalRevenue ?? 0),       color: 'text-blue-400' },
+    { label: 'Кол-во продаж', value: (kpi.totalQuantity ?? 0).toLocaleString(), color: 'text-purple-400' },
+    { label: 'Кол-во чеков',  value: (kpi.totalChecks ?? 0).toLocaleString(),   color: 'text-cyan-400' },
+    { label: 'Ср. чек',       value: fmt(kpi.avgCheck ?? 0),           color: 'text-yellow-400' },
+    { label: 'Вал. прибыль',  value: fmt(kpi.totalGrossProfit ?? 0),   color: 'text-green-400' },
+    // Маржа = Вал. прибыль / Выручка * 100
+    { label: 'Маржа', value: fmtPct(kpi.totalRevenue > 0 ? (kpi.totalGrossProfit / kpi.totalRevenue) * 100 : 0), color: 'text-pink-400' },
+  ] : []
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -395,49 +350,72 @@ export default function Dashboard() {
       {syncResult && <SyncNotification result={syncResult} onClose={() => setSyncResult(null)} />}
 
       <div className="p-6 space-y-6">
+        {!hasMappings && (
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-yellow-400 text-sm">
+            Маппинг не настроен. <a href="/mapping/settings" className="underline font-medium">Настройте маппинг</a> и выполните синхронизацию чтобы увидеть данные.
+          </div>
+        )}
+
+        {/* KPI карточки */}
         {kpi && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Общая выручка', value: fmt(kpi.totalRevenue) },
-              { label: 'Кол-во продаж', value: kpi.totalQuantity.toLocaleString() },
-              { label: 'Кол-во чеков', value: kpi.totalChecks.toLocaleString() },
-              { label: 'Ср. чек', value: fmt(kpi.avgCheck) },
-            ].map((k, i) => (
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+            {kpiCards.map((k, i) => (
               <div key={i} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
                 <p className="text-gray-400 text-xs">{k.label}</p>
-                <p className="text-2xl font-bold mt-1">{k.value}</p>
+                <p className={`text-2xl font-bold mt-1 ${k.color}`}>{k.value}</p>
               </div>
             ))}
           </div>
         )}
 
+        {/* Табы — только 3, без Маппинга */}
         <div className="flex gap-2">
-          {['overview', 'breakdown', 'table'].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === tab ? 'bg-blue-600' : 'bg-gray-800 hover:bg-gray-700'}`}>
-              {tab === 'overview' ? 'Тренды' : tab === 'breakdown' ? 'Разбивка' : 'Таблица'}
+          {[
+            { id: 'overview',  label: 'Тренды' },
+            { id: 'breakdown', label: 'Разбивка' },
+            { id: 'table',     label: 'Таблица' },
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === tab.id ? 'bg-blue-600' : 'bg-gray-800 hover:bg-gray-700'}`}>
+              {tab.label}
             </button>
           ))}
         </div>
 
+        {/* Тренды */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
+            {/* 4 стандартных показателя */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SingleMetricChart title="Выручка" data={trendWithAvg} dataKey="revenue" xKey="label"
+              <SingleMetricChart title="Выручка" data={trendWithCalc} dataKey="revenue" xKey="label"
                 color="#3b82f6" formatTooltip={v => `${v.toLocaleString()} MDL`} />
-              <SingleMetricChart title="Валовая прибыль" data={trendWithAvg} dataKey="grossProfit" xKey="label"
-                color="#10b981" formatTooltip={v => `${v.toLocaleString()} MDL`} />
+              <SingleMetricChart title="Кол-во продаж (наполненность)" data={trendWithCalc} dataKey="quantity" xKey="label"
+                color="#8b5cf6" formatTooltip={v => v.toLocaleString()} />
             </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SingleMetricChart title="Средний чек" data={trendWithAvg} dataKey="avgCheck" xKey="label"
-                color="#f59e0b" formatTooltip={v => `${v.toLocaleString()} MDL`} />
-              <SingleMetricChart title="Кол-во чеков" data={trendWithAvg} dataKey="checks" xKey="label"
+              <SingleMetricChart title="Кол-во чеков" data={trendWithCalc} dataKey="checks" xKey="label"
                 color="#06b6d4" formatTooltip={v => v.toLocaleString()} />
+              {/* Ср. чек = Выручка / Кол-во чеков */}
+              <SingleMetricChart title="Средний чек" data={trendWithCalc} dataKey="avgCheck" xKey="label"
+                color="#f59e0b" formatTooltip={v => `${v.toLocaleString()} MDL`} />
             </div>
 
-            <SingleMetricChart title="Кол-во продаж (наполненность)" data={trendWithAvg} dataKey="quantity" xKey="label"
-              color="#8b5cf6" formatTooltip={v => v.toLocaleString()} />
+            {/* Валовая прибыль — отдельный график */}
+            <SingleMetricChart title="Валовая прибыль" data={trendWithCalc} dataKey="grossProfit" xKey="label"
+              color="#10b981" formatTooltip={v => `${v.toLocaleString()} MDL`} />
+
+            {/* Маржа — отдельный график (Вал. прибыль / Выручка * 100) */}
+            <SingleMetricChart title="Маржа (%)" data={trendWithCalc} dataKey="margin" xKey="label"
+              color="#ec4899" formatTooltip={v => `${v.toFixed(1)}%`} />
+
+            {/* Остальное — ТОЛЬКО поля добавленные через Google Sheets / маппинг в будущем */}
+            <MultiMetricChart
+              title="Остальное"
+              data={trendWithCalc}
+              xKey="label"
+              metrics={extraFields}
+              emptyMessage="Здесь будут отображаться дополнительные поля добавленные через Google Sheets или маппинг"
+            />
 
             <MultiMetricChart
               title="По годам"
@@ -445,19 +423,14 @@ export default function Dashboard() {
               xKey="year"
               metrics={[
                 { key: 'revenue',     name: 'Выручка',      color: '#3b82f6' },
-                { key: 'quantity',    name: 'Кол-во',       color: '#10b981' },
+                { key: 'grossProfit', name: 'Вал. прибыль', color: '#10b981' },
+                { key: 'quantity',    name: 'Кол-во',       color: '#8b5cf6' },
               ]}
-            />
-
-            <MultiMetricChart
-              title="Остальное"
-              data={trendWithAvg}
-              xKey="label"
-              metrics={[]}
             />
           </div>
         )}
 
+        {/* Разбивка */}
         {activeTab === 'breakdown' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
@@ -479,12 +452,12 @@ export default function Dashboard() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-
             <SingleMetricChart title="Топ магазинов по выручке" data={byStore} dataKey="revenue" xKey="store"
               color="#8b5cf6" formatTooltip={v => `${v.toLocaleString()} MDL`} />
           </div>
         )}
 
+        {/* Таблица */}
         {activeTab === 'table' && (
           <div className="bg-gray-800 rounded-xl border border-gray-700">
             <div className="p-4 border-b border-gray-700 flex gap-3">
@@ -497,22 +470,37 @@ export default function Dashboard() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-700/50">
                   <tr>
-                    {['Год','Месяц','Магазин','Выручка','Кол-во продаж','Чеки'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-gray-400 font-medium">{h}</th>
+                    {[
+                      'Год','Месяц','Магазин','Выручка','Вал. прибыль','Маржа','Ср. чек','Кол-во продаж','Чеки',
+                      ...extraFields.map(f => f.name)
+                    ].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-gray-400 font-medium whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700">
-                  {table.map((row, i) => (
-                    <tr key={i} className="hover:bg-gray-700/30 transition">
-                      <td className="px-4 py-3 text-gray-400">{row.year}</td>
-                      <td className="px-4 py-3 text-gray-400">{MONTHS[row.month - 1]}</td>
-                      <td className="px-4 py-3 text-blue-400 font-medium">{row.store}</td>
-                      <td className="px-4 py-3 text-blue-400">{fmt(row.revenue)}</td>
-                      <td className="px-4 py-3">{row.quantity.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-green-400">{row.checks.toLocaleString()}</td>
-                    </tr>
-                  ))}
+                  {table.map((row, i) => {
+                    const margin = row.revenue > 0 ? (row.grossProfit / row.revenue) * 100 : 0
+                    const avgCheck = row.checks > 0 ? row.revenue / row.checks : 0
+                    return (
+                      <tr key={i} className="hover:bg-gray-700/30 transition">
+                        <td className="px-4 py-3 text-gray-400">{row.year}</td>
+                        <td className="px-4 py-3 text-gray-400">{MONTHS[row.month - 1]}</td>
+                        <td className="px-4 py-3 text-blue-400 font-medium">{row.store}</td>
+                        <td className="px-4 py-3 text-blue-400">{fmt(row.revenue)}</td>
+                        <td className="px-4 py-3 text-green-400">{fmt(row.grossProfit ?? 0)}</td>
+                        <td className="px-4 py-3 text-pink-400">{fmtPct(margin)}</td>
+                        <td className="px-4 py-3 text-yellow-400">{fmt(avgCheck)}</td>
+                        <td className="px-4 py-3">{(row.quantity ?? 0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-cyan-400">{(row.checks ?? 0).toLocaleString()}</td>
+                        {extraFields.map(f => (
+                          <td key={f.key} className="px-4 py-3 text-orange-400">
+                            {row.extraData?.[f.key] ?? row[f.key] ?? '—'}
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
