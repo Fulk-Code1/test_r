@@ -24,7 +24,7 @@ function fmtShort(n: number) {
 
 function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
   return (
-    <label className="flex items-center gap-2 text-gray-400 text-xs cursor-pointer select-none mt-3">
+    <label className="flex items-center gap-2 text-gray-400 text-xs cursor-pointer select-none">
       <input type="checkbox" checked={checked} onChange={onChange} className="w-3.5 h-3.5 accent-blue-500 cursor-pointer" />
       {label}
     </label>
@@ -138,7 +138,10 @@ export default function Dashboard() {
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-              <h3 className="font-semibold mb-4">Выручка по месяцам</h3>
+              <div className="flex justify-between items-start mb-3">
+                <h3 className="font-semibold">Выручка по месяцам</h3>
+                <Checkbox label="Значения" checked={showLabels.trend} onChange={() => toggleLabel('trend')} />
+              </div>
               <ResponsiveContainer width="100%" height={280}>
                 <LineChart data={trend}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -154,10 +157,13 @@ export default function Dashboard() {
                   </Line>
                 </LineChart>
               </ResponsiveContainer>
-              <Checkbox label="Показать значения" checked={showLabels.trend} onChange={() => toggleLabel('trend')} />
             </div>
+
             <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-              <h3 className="font-semibold mb-4">Выручка по годам</h3>
+              <div className="flex justify-between items-start mb-3">
+                <h3 className="font-semibold">Выручка по годам</h3>
+                <Checkbox label="Значения" checked={showLabels.yearBar} onChange={() => toggleLabel('yearBar')} />
+              </div>
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={yearTrend}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -173,7 +179,6 @@ export default function Dashboard() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-              <Checkbox label="Показать значения" checked={showLabels.yearBar} onChange={() => toggleLabel('yearBar')} />
             </div>
           </div>
         )}
@@ -181,7 +186,10 @@ export default function Dashboard() {
         {activeTab === 'breakdown' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-              <h3 className="font-semibold mb-4">Доля выручки по магазинам</h3>
+              <div className="flex justify-between items-start mb-3">
+                <h3 className="font-semibold">Доля выручки по магазинам</h3>
+                <Checkbox label="Значения" checked={showLabels.storePie} onChange={() => toggleLabel('storePie')} />
+              </div>
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
                   <Pie data={byStore} dataKey="revenue" nameKey="store" cx="50%" cy="50%" outerRadius={100}
@@ -192,10 +200,13 @@ export default function Dashboard() {
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
-              <Checkbox label="Показать значения" checked={showLabels.storePie} onChange={() => toggleLabel('storePie')} />
             </div>
+
             <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-              <h3 className="font-semibold mb-4">Топ магазинов по выручке</h3>
+              <div className="flex justify-between items-start mb-3">
+                <h3 className="font-semibold">Топ магазинов по выручке</h3>
+                <Checkbox label="Значения" checked={showLabels.storeBar} onChange={() => toggleLabel('storeBar')} />
+              </div>
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={byStore} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -207,7 +218,6 @@ export default function Dashboard() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-              <Checkbox label="Показать значения" checked={showLabels.storeBar} onChange={() => toggleLabel('storeBar')} />
             </div>
           </div>
         )}
