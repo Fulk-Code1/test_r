@@ -303,6 +303,16 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename }
   )
 }
 
+// ─── SortTh Component ────────────────────────────────────────────
+function SortTh({ col, label, sortBy, sortDir, onSort }: { col: string; label: string; sortBy: string; sortDir: 'asc'|'desc'; onSort: (col: string) => void }) {
+  return (
+    <th onClick={() => onSort(col)}
+      className="px-4 py-3 text-left text-gray-400 font-medium whitespace-nowrap cursor-pointer select-none hover:text-white transition">
+      {label} {sortBy === col ? (sortDir === 'asc' ? '↑' : '↓') : <span className="text-gray-600">↕</span>}
+    </th>
+  )
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────
 export default function Dashboard() {
   const user = JSON.parse(localStorage.getItem('user') || 'null')
@@ -315,29 +325,70 @@ export default function Dashboard() {
   const [table, setTable] = useState<any[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [search, setSearch] = useState('')
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<any>(null)
   const [activeTab, setActiveTab] = useState('overview')
   const [years, setYears] = useState<number[]>([])
+  const [allStores, setAllStores] = useState<string[]>([])
   const [selectedYear, setSelectedYear] = useState<string>('')
   const [showStorePieLabels, setShowStorePieLabels] = useState(false)
   const [hasMappings, setHasMappings] = useState(true)
   const [extraFields, setExtraFields] = useState<{ key: string; name: string; color: string }[]>([])
 
+  // ── Фильтры таблицы ──
+  const [filterYears,   setFilterYears]   = useState<number[]>([])
+  const [filterMonths,  setFilterMonths]  = useState<number[]>([])
+  const [filterStores,  setFilterStores]  = useState<string[]>([])
+  const [filterSearch,  setFilterSearch]  = useState('')
+  const [filterRevenueMin,     setFilterRevenueMin]     = useState('')
+  const [filterRevenueMax,     setFilterRevenueMax]     = useState('')
+  const [filterGrossMin,       setFilterGrossMin]       = useState('')
+  const [filterGrossMax,       setFilterGrossMax]       = useState('')
+  const [filterMarginMin,      setFilterMarginMin]      = useState('')
+  const [filterMarginMax,      setFilterMarginMax]      = useState('')
+  const [filterAvgCheckMin,    setFilterAvgCheckMin]    = useState('')
+  const [filterAvgCheckMax,    setFilterAvgCheckMax]    = useState('')
+  const [filterChecksMin,      setFilterChecksMin]      = useState('')
+  const [filterChecksMax,      setFilterChecksMax]      = useState('')
+  const [filterQuantityMin,    setFilterQuantityMin]    = useState('')
+  const [filterQuantityMax,    setFilterQuantityMax]    = useState('')
+  const [sortBy,  setSortBy]  = useState('year')
+  const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+
+  const resetFilters = () => {
+    setFilterYears([]); setFilterMonths([]); setFilterStores([]); setFilterSearch('')
+    setFilterRevenueMin(''); setFilterRevenueMax('')
+    setFilterGrossMin(''); setFilterGrossMax('')
+    setFilterMarginMin(''); setFilterMarginMax('')
+    setFilterAvgCheckMin(''); setFilterAvgCheckMax('')
+    setFilterChecksMin(''); setFilterChecksMax('')
+    setFilterQuantityMin(''); setFilterQuantityMax('')
+    setPage(1)
+  }
+
+  const activeFilterCount = [
+    filterYears.length, filterMonths.length, filterStores.length,
+    filterSearch, filterRevenueMin, filterRevenueMax,
+    filterGrossMin, filterGrossMax, filterMarginMin, filterMarginMax,
+    filterAvgCheckMin, filterAvgCheckMax, filterChecksMin, filterChecksMax,
+    filterQuantityMin, filterQuantityMax
+  ].filter(Boolean).length
+
   const fetchAll = useCallback(async () => {
     try {
       const yParam = selectedYear ? `?year=${selectedYear}` : ''
-      const [kpiR, trendR, storeR, yearR, yearsR, mappingR] = await Promise.all([
+      const [kpiR, trendR, storeR, yearR, yearsR, mappingR, storesR] = await Promise.all([
         axios.get(`${API}/sales/kpi${yParam}`),
         axios.get(`${API}/sales/trend${yParam}`),
         axios.get(`${API}/sales/by-store${yParam}`),
         axios.get(`${API}/sales/by-year`),
         axios.get(`${API}/sales/years`),
         axios.get(`${API}/mapping`),
+        axios.get(`${API}/sales/stores`),
       ])
       setKpi(kpiR.data); setTrend(trendR.data); setByStore(storeR.data)
-      setYearTrend(yearR.data); setYears(yearsR.data)
+      setYearTrend(yearR.data); setYears(yearsR.data); setAllStores(storesR.data)
       setHasMappings(mappingR.data.length > 0)
       const sample = trendR.data[0] || {}
       const dynamicKeys = Object.keys(sample).filter(k => !EXCLUDED_FROM_EXTRA.has(k))
@@ -347,12 +398,31 @@ export default function Dashboard() {
 
   const fetchTable = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/sales/table`, {
-        params: { page, limit: 15, search, ...(selectedYear ? { year: selectedYear } : {}) }
-      })
-      setTable(res.data.data); setTotal(res.data.total)
+      const params: any = { page, limit: 15, sortBy, sortDir }
+      if (filterSearch)          params.search         = filterSearch
+      if (filterYears.length)    params.years          = filterYears.join(',')
+      if (filterMonths.length)   params.months         = filterMonths.join(',')
+      if (filterStores.length)   params.stores         = filterStores.join(',')
+      if (filterRevenueMin)      params.revenueMin     = filterRevenueMin
+      if (filterRevenueMax)      params.revenueMax     = filterRevenueMax
+      if (filterGrossMin)        params.grossProfitMin = filterGrossMin
+      if (filterGrossMax)        params.grossProfitMax = filterGrossMax
+      if (filterMarginMin)       params.marginMin      = filterMarginMin
+      if (filterMarginMax)       params.marginMax      = filterMarginMax
+      if (filterAvgCheckMin)     params.avgCheckMin    = filterAvgCheckMin
+      if (filterAvgCheckMax)     params.avgCheckMax    = filterAvgCheckMax
+      if (filterChecksMin)       params.checksMin      = filterChecksMin
+      if (filterChecksMax)       params.checksMax      = filterChecksMax
+      if (filterQuantityMin)     params.quantityMin    = filterQuantityMin
+      if (filterQuantityMax)     params.quantityMax    = filterQuantityMax
+      const res = await axios.get(`${API}/sales/table`, { params })
+      setTable(res.data.data)
+      setTotal(res.data.total)
     } catch { console.error('table error') }
-  }, [page, search, selectedYear])
+  }, [page, sortBy, sortDir, filterSearch, filterYears, filterMonths, filterStores,
+      filterRevenueMin, filterRevenueMax, filterGrossMin, filterGrossMax,
+      filterMarginMin, filterMarginMax, filterAvgCheckMin, filterAvgCheckMax,
+      filterChecksMin, filterChecksMax, filterQuantityMin, filterQuantityMax])
 
   useEffect(() => { fetchAll() }, [fetchAll])
   useEffect(() => { fetchTable() }, [fetchTable])
@@ -375,60 +445,23 @@ export default function Dashboard() {
 
   const yearLabel = selectedYear ? `_${selectedYear}` : ''
 
-  // ── Выгрузка всего таба ──
   const downloadOverview = () => {
     xlsxDownloadMulti([
-      {
-        name: 'Выручка',
-        rows: trendWithCalc.map(r => ({ Период: r.label, 'Выручка (MDL)': r.revenue }))
-      },
-      {
-        name: 'Кол-во продаж',
-        rows: trendWithCalc.map(r => ({ Период: r.label, 'Кол-во продаж': r.quantity }))
-      },
-      {
-        name: 'Кол-во чеков',
-        rows: trendWithCalc.map(r => ({ Период: r.label, 'Кол-во чеков': r.checks }))
-      },
-      {
-        name: 'Средний чек',
-        rows: trendWithCalc.map(r => ({ Период: r.label, 'Средний чек (MDL)': r.avgCheck }))
-      },
-      {
-        name: 'Валовая прибыль',
-        rows: trendWithCalc.map(r => ({ Период: r.label, 'Вал. прибыль (MDL)': r.grossProfit }))
-      },
-      {
-        name: 'Маржа',
-        rows: trendWithCalc.map(r => ({ Период: r.label, 'Маржа (%)': r.margin }))
-      },
-      {
-        name: 'По годам',
-        rows: yearTrend.map(r => ({ Год: r.year, 'Выручка (MDL)': r.revenue, 'Вал. прибыль (MDL)': r.grossProfit, 'Кол-во': r.quantity }))
-      },
-      ...(extraFields.length > 0 ? [{
-        name: 'Остальное',
-        rows: trendWithCalc.map(r => {
-          const obj: any = { Период: r.label }
-          extraFields.forEach(f => { obj[f.name] = r[f.key] ?? 0 })
-          return obj
-        })
-      }] : [])
+      { name: 'Выручка',         rows: trendWithCalc.map(r => ({ Период: r.label, 'Выручка (MDL)': r.revenue })) },
+      { name: 'Кол-во продаж',   rows: trendWithCalc.map(r => ({ Период: r.label, 'Кол-во продаж': r.quantity })) },
+      { name: 'Кол-во чеков',    rows: trendWithCalc.map(r => ({ Период: r.label, 'Кол-во чеков': r.checks })) },
+      { name: 'Средний чек',     rows: trendWithCalc.map(r => ({ Период: r.label, 'Средний чек (MDL)': r.avgCheck })) },
+      { name: 'Валовая прибыль', rows: trendWithCalc.map(r => ({ Период: r.label, 'Вал. прибыль (MDL)': r.grossProfit })) },
+      { name: 'Маржа',           rows: trendWithCalc.map(r => ({ Период: r.label, 'Маржа (%)': r.margin })) },
+      { name: 'По годам',        rows: yearTrend.map(r => ({ Год: r.year, 'Выручка (MDL)': r.revenue, 'Вал. прибыль (MDL)': r.grossProfit, 'Кол-во': r.quantity })) },
+      ...(extraFields.length > 0 ? [{ name: 'Остальное', rows: trendWithCalc.map(r => { const obj: any = { Период: r.label }; extraFields.forEach(f => { obj[f.name] = r[f.key] ?? 0 }); return obj }) }] : [])
     ], `Дашборд_Тренды${yearLabel}`)
   }
 
   const downloadBreakdown = () => {
     xlsxDownloadMulti([
-      {
-        name: 'Доля выручки по магазинам',
-        rows: byStore.map(r => ({ Магазин: r.store, 'Выручка (MDL)': r.revenue }))
-      },
-      {
-        name: 'Топ магазинов',
-        rows: [...byStore].sort((a,b) => b.revenue - a.revenue).map((r, i) => ({
-          '#': i + 1, Магазин: r.store, 'Выручка (MDL)': r.revenue
-        }))
-      }
+      { name: 'Доля выручки по магазинам', rows: byStore.map(r => ({ Магазин: r.store, 'Выручка (MDL)': r.revenue })) },
+      { name: 'Топ магазинов', rows: [...byStore].sort((a,b) => b.revenue - a.revenue).map((r, i) => ({ '#': i + 1, Магазин: r.store, 'Выручка (MDL)': r.revenue })) }
     ], `Дашборд_Разбивка${yearLabel}`)
   }
 
@@ -438,21 +471,15 @@ export default function Dashboard() {
         const margin = row.revenue > 0 ? parseFloat(((row.grossProfit / row.revenue) * 100).toFixed(2)) : 0
         const avgCheck = row.checks > 0 ? Math.round(row.revenue / row.checks) : 0
         const obj: any = {
-          Год: row.year,
-          Месяц: MONTHS_FULL[row.month - 1],
-          Магазин: row.store,
-          'Выручка (MDL)': row.revenue,
-          'Вал. прибыль (MDL)': row.grossProfit ?? 0,
-          'Маржа (%)': margin,
-          'Ср. чек (MDL)': avgCheck,
-          'Кол-во продаж': row.quantity ?? 0,
-          'Чеки': row.checks ?? 0,
+          Год: row.year, Месяц: MONTHS_FULL[row.month - 1], Магазин: row.store,
+          'Выручка (MDL)': row.revenue, 'Вал. прибыль (MDL)': row.grossProfit ?? 0,
+          'Маржа (%)': margin, 'Ср. чек (MDL)': avgCheck,
+          'Кол-во продаж': row.quantity ?? 0, 'Чеки': row.checks ?? 0,
         }
         extraFields.forEach(f => { obj[f.name] = row.extraData?.[f.key] ?? row[f.key] ?? '' })
         return obj
       }),
-      `Дашборд_Таблица${yearLabel}`,
-      'Данные'
+      `Дашборд_Таблица${yearLabel}`, 'Данные'
     )
   }
 
@@ -465,10 +492,12 @@ export default function Dashboard() {
     { label: 'Маржа', value: fmtPct(kpi.totalRevenue > 0 ? (kpi.totalGrossProfit / kpi.totalRevenue) * 100 : 0), color: 'text-pink-400' },
   ] : []
 
-  const tabDownloadMap: Record<string, () => void> = {
-    overview: downloadOverview,
-    breakdown: downloadBreakdown,
-    table: downloadTable,
+  const tabDownloadMap: Record<string, () => void> = { overview: downloadOverview, breakdown: downloadBreakdown, table: downloadTable }
+
+  const toggleSort = (col: string) => {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(col); setSortDir('desc') }
+    setPage(1)
   }
 
   return (
@@ -488,7 +517,6 @@ export default function Dashboard() {
           <button onClick={handleLogout} className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg text-sm transition">Выйти</button>
         </>
       } />
-
       {syncResult && <SyncNotification result={syncResult} onClose={() => setSyncResult(null)} />}
 
       <div className="p-6 space-y-6">
@@ -509,21 +537,15 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Табы + иконка скачивания всего таба справа */}
         <div className="flex items-center justify-between">
           <div className="flex gap-2">
-            {[
-              { id: 'overview',  label: 'Тренды' },
-              { id: 'breakdown', label: 'Разбивка' },
-              { id: 'table',     label: 'Таблица' },
-            ].map(tab => (
+            {[{ id: 'overview', label: 'Тренды' }, { id: 'breakdown', label: 'Разбивка' }, { id: 'table', label: 'Таблица' }].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === tab.id ? 'bg-blue-600' : 'bg-gray-800 hover:bg-gray-700'}`}>
                 {tab.label}
               </button>
             ))}
           </div>
-          {/* Общая кнопка выгрузки текущего таба */}
           <button onClick={() => tabDownloadMap[activeTab]?.()}
             title="Скачать все данные этой страницы"
             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800 hover:bg-green-700 text-gray-400 hover:text-white transition text-sm border border-gray-700">
@@ -538,30 +560,19 @@ export default function Dashboard() {
         {activeTab === 'overview' && (
           <div className="space-y-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SingleMetricChart title="Выручка" data={trendWithCalc} dataKey="revenue" xKey="label"
-                color="#3b82f6" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Выручка${yearLabel}`} />
-              <SingleMetricChart title="Кол-во продаж (наполненность)" data={trendWithCalc} dataKey="quantity" xKey="label"
-                color="#8b5cf6" formatTooltip={v => v.toLocaleString()} filename={`Кол-во_продаж${yearLabel}`} />
+              <SingleMetricChart title="Выручка" data={trendWithCalc} dataKey="revenue" xKey="label" color="#3b82f6" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Выручка${yearLabel}`} />
+              <SingleMetricChart title="Кол-во продаж (наполненность)" data={trendWithCalc} dataKey="quantity" xKey="label" color="#8b5cf6" formatTooltip={v => v.toLocaleString()} filename={`Кол-во_продаж${yearLabel}`} />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SingleMetricChart title="Кол-во чеков" data={trendWithCalc} dataKey="checks" xKey="label"
-                color="#06b6d4" formatTooltip={v => v.toLocaleString()} filename={`Кол-во_чеков${yearLabel}`} />
-              <SingleMetricChart title="Средний чек" data={trendWithCalc} dataKey="avgCheck" xKey="label"
-                color="#f59e0b" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Средний_чек${yearLabel}`} />
+              <SingleMetricChart title="Кол-во чеков" data={trendWithCalc} dataKey="checks" xKey="label" color="#06b6d4" formatTooltip={v => v.toLocaleString()} filename={`Кол-во_чеков${yearLabel}`} />
+              <SingleMetricChart title="Средний чек" data={trendWithCalc} dataKey="avgCheck" xKey="label" color="#f59e0b" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Средний_чек${yearLabel}`} />
             </div>
-            <SingleMetricChart title="Валовая прибыль" data={trendWithCalc} dataKey="grossProfit" xKey="label"
-              color="#10b981" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Валовая_прибыль${yearLabel}`} />
-            <SingleMetricChart title="Маржа (%)" data={trendWithCalc} dataKey="margin" xKey="label"
-              color="#ec4899" formatTooltip={v => `${v.toFixed(1)}%`} filename={`Маржа${yearLabel}`} />
+            <SingleMetricChart title="Валовая прибыль" data={trendWithCalc} dataKey="grossProfit" xKey="label" color="#10b981" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Валовая_прибыль${yearLabel}`} />
+            <SingleMetricChart title="Маржа (%)" data={trendWithCalc} dataKey="margin" xKey="label" color="#ec4899" formatTooltip={v => `${v.toFixed(1)}%`} filename={`Маржа${yearLabel}`} />
             <MultiMetricChart title="Остальное" data={trendWithCalc} xKey="label" metrics={extraFields}
-              emptyMessage="Здесь будут отображаться дополнительные поля добавленные через Google Sheets или маппинг"
-              filename={`Остальное${yearLabel}`} />
+              emptyMessage="Здесь будут отображаться дополнительные поля добавленные через Google Sheets или маппинг" filename={`Остальное${yearLabel}`} />
             <MultiMetricChart title="По годам" data={yearTrend} xKey="year"
-              metrics={[
-                { key: 'revenue',     name: 'Выручка',      color: '#3b82f6' },
-                { key: 'grossProfit', name: 'Вал. прибыль', color: '#10b981' },
-                { key: 'quantity',    name: 'Кол-во',       color: '#8b5cf6' },
-              ]}
+              metrics={[{ key: 'revenue', name: 'Выручка', color: '#3b82f6' }, { key: 'grossProfit', name: 'Вал. прибыль', color: '#10b981' }, { key: 'quantity', name: 'Кол-во', color: '#8b5cf6' }]}
               filename="По_годам" />
           </div>
         )}
@@ -585,75 +596,186 @@ export default function Dashboard() {
                     label={showStorePieLabels ? ({ payload, percent }) => `${payload.store} ${((percent ?? 0)*100).toFixed(0)}%` : false}>
                     {byStore.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} {...ttProps} />
+                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151', fontSize: 13 }} labelStyle={{ color: '#fff', fontSize: 13 }} itemStyle={{ color: '#fff', fontSize: 13 }} />
                   <Legend wrapperStyle={{ fontSize: 13 }} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex justify-end mt-3">
-                <DownloadBtn onClick={() => xlsxDownload(
-                  byStore.map(r => ({ Магазин: r.store, 'Выручка (MDL)': r.revenue })),
-                  `Доля_выручки_по_магазинам${yearLabel}`, 'Доля по магазинам'
-                )} title="Скачать доля выручки по магазинам" />
+                <DownloadBtn onClick={() => xlsxDownload(byStore.map(r => ({ Магазин: r.store, 'Выручка (MDL)': r.revenue })), `Доля_выручки_по_магазинам${yearLabel}`, 'Доля по магазинам')} title="Скачать" />
               </div>
             </div>
-            <SingleMetricChart title="Топ магазинов по выручке" data={byStore} dataKey="revenue" xKey="store"
-              color="#8b5cf6" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Топ_магазинов${yearLabel}`} />
+            <SingleMetricChart title="Топ магазинов по выручке" data={byStore} dataKey="revenue" xKey="store" color="#8b5cf6" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Топ_магазинов${yearLabel}`} />
           </div>
         )}
 
         {/* Таблица */}
         {activeTab === 'table' && (
-          <div className="bg-gray-800 rounded-xl border border-gray-700">
-            <div className="p-4 border-b border-gray-700 flex gap-3">
-              <input type="text" placeholder="Поиск по магазину..."
-                value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
-                className="flex-1 bg-gray-700 text-white rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-              <span className="text-gray-400 text-sm self-center">Всего: {total}</span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-700/50">
-                  <tr>
-                    {[
-                      'Год','Месяц','Магазин','Выручка','Вал. прибыль','Маржа','Ср. чек','Кол-во продаж','Чеки',
-                      ...extraFields.map(f => f.name)
-                    ].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-gray-400 font-medium whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-700">
-                  {table.map((row, i) => {
-                    const margin = row.revenue > 0 ? (row.grossProfit / row.revenue) * 100 : 0
-                    const avgCheck = row.checks > 0 ? row.revenue / row.checks : 0
-                    return (
-                      <tr key={i} className="hover:bg-gray-700/30 transition">
-                        <td className="px-4 py-3 text-gray-400">{row.year}</td>
-                        <td className="px-4 py-3 text-gray-400">{MONTHS[row.month - 1]}</td>
-                        <td className="px-4 py-3 text-blue-400 font-medium">{row.store}</td>
-                        <td className="px-4 py-3 text-blue-400">{fmt(row.revenue)}</td>
-                        <td className="px-4 py-3 text-green-400">{fmt(row.grossProfit ?? 0)}</td>
-                        <td className="px-4 py-3 text-pink-400">{fmtPct(margin)}</td>
-                        <td className="px-4 py-3 text-yellow-400">{fmt(avgCheck)}</td>
-                        <td className="px-4 py-3">{(row.quantity ?? 0).toLocaleString()}</td>
-                        <td className="px-4 py-3 text-cyan-400">{(row.checks ?? 0).toLocaleString()}</td>
-                        {extraFields.map(f => (
-                          <td key={f.key} className="px-4 py-3 text-orange-400">
-                            {row.extraData?.[f.key] ?? row[f.key] ?? '—'}
-                          </td>
+          <div className="space-y-4">
+
+            {/* Панель фильтров */}
+            <div className="bg-gray-800 rounded-xl border border-gray-700">
+              <button onClick={() => setFiltersOpen(v => !v)}
+                className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium hover:bg-gray-700/50 transition rounded-xl">
+                <div className="flex items-center gap-3">
+                  <span>🔍 Фильтры</span>
+                  {activeFilterCount > 0 && (
+                    <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">{activeFilterCount}</span>
+                  )}
+                </div>
+                <span className="text-gray-400">{filtersOpen ? '▲' : '▼'}</span>
+              </button>
+
+              {filtersOpen && (
+                <div className="px-5 pb-5 border-t border-gray-700 pt-4 space-y-5">
+
+                  {/* Поиск */}
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Поиск по магазину</label>
+                    <input type="text" placeholder="Введите название..."
+                      value={filterSearch} onChange={e => { setFilterSearch(e.target.value); setPage(1) }}
+                      className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+                    {/* Годы */}
+                    <div>
+                      <label className="text-xs text-gray-400 mb-2 block">Год</label>
+                      <div className="flex flex-wrap gap-1">
+                        {years.map(y => (
+                          <button key={y} onClick={() => { setFilterYears(prev => prev.includes(y) ? prev.filter(x => x !== y) : [...prev, y]); setPage(1) }}
+                            className={`px-3 py-1 rounded text-sm transition ${filterYears.includes(y) ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>
+                            {y}
+                          </button>
                         ))}
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+
+                    {/* Месяцы */}
+                    <div>
+                      <label className="text-xs text-gray-400 mb-2 block">Месяц</label>
+                      <div className="grid grid-cols-4 gap-1">
+                        {MONTHS.map((m, i) => (
+                          <button key={i} onClick={() => { setFilterMonths(prev => prev.includes(i+1) ? prev.filter(x => x !== i+1) : [...prev, i+1]); setPage(1) }}
+                            className={`px-2 py-1 rounded text-xs transition ${filterMonths.includes(i+1) ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Магазины */}
+                    <div>
+                      <label className="text-xs text-gray-400 mb-2 block">Магазин</label>
+                      <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
+                        {allStores.map(s => (
+                          <label key={s} className="flex items-center gap-2 text-sm cursor-pointer hover:text-white text-gray-300 py-0.5">
+                            <input type="checkbox" className="accent-blue-500"
+                              checked={filterStores.includes(s)}
+                              onChange={() => { setFilterStores(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]); setPage(1) }} />
+                            {s}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Числовые диапазоны */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+                    {[
+                      { label: 'Выручка (MDL)', min: filterRevenueMin, setMin: setFilterRevenueMin, max: filterRevenueMax, setMax: setFilterRevenueMax },
+                      { label: 'Вал. прибыль (MDL)', min: filterGrossMin, setMin: setFilterGrossMin, max: filterGrossMax, setMax: setFilterGrossMax },
+                      { label: 'Маржа (%)', min: filterMarginMin, setMin: setFilterMarginMin, max: filterMarginMax, setMax: setFilterMarginMax },
+                      { label: 'Ср. чек (MDL)', min: filterAvgCheckMin, setMin: setFilterAvgCheckMin, max: filterAvgCheckMax, setMax: setFilterAvgCheckMax },
+                      { label: 'Чеки', min: filterChecksMin, setMin: setFilterChecksMin, max: filterChecksMax, setMax: setFilterChecksMax },
+                      { label: 'Кол-во продаж', min: filterQuantityMin, setMin: setFilterQuantityMin, max: filterQuantityMax, setMax: setFilterQuantityMax },
+                    ].map(f => (
+                      <div key={f.label}>
+                        <label className="text-xs text-gray-400 mb-1 block">{f.label}</label>
+                        <div className="flex gap-1">
+                          <input type="number" placeholder="От" value={f.min}
+                            onChange={e => { f.setMin(e.target.value); setPage(1) }}
+                            className="w-full bg-gray-700 text-white rounded px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-blue-500" />
+                          <input type="number" placeholder="До" value={f.max}
+                            onChange={e => { f.setMax(e.target.value); setPage(1) }}
+                            className="w-full bg-gray-700 text-white rounded px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-blue-500" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Сброс */}
+                  {activeFilterCount > 0 && (
+                    <div className="flex justify-end">
+                      <button onClick={resetFilters}
+                        className="text-sm text-red-400 hover:text-red-300 transition px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20">
+                        ✕ Сбросить все фильтры ({activeFilterCount})
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="p-4 flex justify-between items-center border-t border-gray-700">
-              <button disabled={page === 1} onClick={() => setPage(p => p-1)}
-                className="px-4 py-2 bg-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-600 transition text-sm">← Назад</button>
-              <span className="text-gray-400 text-sm">Стр. {page} из {Math.ceil(total/15)}</span>
-              <button disabled={page >= Math.ceil(total/15)} onClick={() => setPage(p => p+1)}
-                className="px-4 py-2 bg-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-600 transition text-sm">Вперёд →</button>
+
+            {/* Таблица */}
+            <div className="bg-gray-800 rounded-xl border border-gray-700">
+              <div className="p-3 border-b border-gray-700 flex justify-between items-center">
+                <span className="text-gray-400 text-sm">Найдено записей: <span className="text-white font-medium">{total}</span></span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-700/50">
+                    <tr>
+                      <SortTh col="year"        label="Год" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                      <SortTh col="month"       label="Месяц" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                      <SortTh col="store"       label="Магазин" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                      <SortTh col="revenue"     label="Выручка" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                      <SortTh col="grossProfit" label="Вал. прибыль" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                      <SortTh col="margin"      label="Маржа" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                      <SortTh col="avgCheck"    label="Ср. чек" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                      <SortTh col="quantity"    label="Кол-во продаж" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                      <SortTh col="checks"      label="Чеки" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                      {extraFields.map(f => (
+                        <th key={f.key} className="px-4 py-3 text-left text-gray-400 font-medium whitespace-nowrap">{f.name}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700">
+                    {table.map((row, i) => {
+                      const margin = row.revenue > 0 ? (row.grossProfit / row.revenue) * 100 : 0
+                      const avgCheck = row.checks > 0 ? row.revenue / row.checks : 0
+                      return (
+                        <tr key={i} className="hover:bg-gray-700/30 transition">
+                          <td className="px-4 py-3 text-gray-400">{row.year}</td>
+                          <td className="px-4 py-3 text-gray-400">{MONTHS[row.month - 1]}</td>
+                          <td className="px-4 py-3 text-blue-400 font-medium">{row.store}</td>
+                          <td className="px-4 py-3 text-blue-400">{fmt(row.revenue)}</td>
+                          <td className="px-4 py-3 text-green-400">{fmt(row.grossProfit ?? 0)}</td>
+                          <td className="px-4 py-3 text-pink-400">{fmtPct(margin)}</td>
+                          <td className="px-4 py-3 text-yellow-400">{fmt(avgCheck)}</td>
+                          <td className="px-4 py-3">{(row.quantity ?? 0).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-cyan-400">{(row.checks ?? 0).toLocaleString()}</td>
+                          {extraFields.map(f => (
+                            <td key={f.key} className="px-4 py-3 text-orange-400">
+                              {row.extraData?.[f.key] ?? row[f.key] ?? '—'}
+                            </td>
+                          ))}
+                        </tr>
+                      )
+                    })}
+                    {table.length === 0 && (
+                      <tr><td colSpan={9 + extraFields.length} className="px-4 py-10 text-center text-gray-500">Нет данных по выбранным фильтрам</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="p-4 flex justify-between items-center border-t border-gray-700">
+                <button disabled={page === 1} onClick={() => setPage(p => p-1)}
+                  className="px-4 py-2 bg-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-600 transition text-sm">← Назад</button>
+                <span className="text-gray-400 text-sm">Стр. {page} из {Math.max(1, Math.ceil(total/15))}</span>
+                <button disabled={page >= Math.ceil(total/15)} onClick={() => setPage(p => p+1)}
+                  className="px-4 py-2 bg-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-600 transition text-sm">Вперёд →</button>
+              </div>
             </div>
           </div>
         )}
