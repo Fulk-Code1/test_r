@@ -95,7 +95,7 @@ export default function MappingPage() {
         <div className="flex items-center gap-2">
           <a href="/"
             className="px-4 py-2 rounded-lg text-sm font-medium transition bg-gray-700 hover:bg-gray-600">
-            Дашборд
+            Обзор
           </a>
           <a href="/mapping"
             className="px-4 py-2 rounded-lg text-sm font-medium transition bg-blue-600">
