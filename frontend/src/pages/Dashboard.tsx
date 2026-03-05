@@ -175,10 +175,10 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
 }
 
 // ─── MultiMetricChart ─────────────────────────────────────────────
-function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename }: {
+function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, dualAxis }: {
   title: string; data: any[]; xKey: string
-  metrics: { key: string; name: string; color: string }[]
-  emptyMessage?: string; filename: string
+  metrics: { key: string; name: string; color: string; isPercent?: boolean }[]
+  emptyMessage?: string; filename: string; dualAxis?: boolean
 }) {
   const [chartType, setChartType] = useState<ChartType>('line')
   const [active, setActive] = useState<string[]>(metrics.map(m => m.key))
@@ -224,8 +224,15 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename }
     <>
       <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
       <XAxis dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
-      <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
-      <Tooltip formatter={(v: any) => Number(v).toLocaleString()} {...ttProps} />
+      <YAxis yAxisId="left" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+      {dualAxis && (
+        <YAxis yAxisId="right" orientation="right" stroke="#ec4899"
+          tick={{ fontSize: 12 }} tickFormatter={v => `${v.toFixed(1)}%`} domain={[0, 'auto']} />
+      )}
+      <Tooltip formatter={(v: any, name?: string) => {
+        const m = metrics.find(x => x.name === name)
+        return m?.isPercent ? `${Number(v).toFixed(1)}%` : `${Number(v).toLocaleString()} MDL`
+      }} {...ttProps} />
       <Legend wrapperStyle={{ fontSize: 13 }} />
     </>
   )
@@ -269,9 +276,10 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename }
           <LineChart data={data}>
             {axes}
             {visibleMetrics.map(m => (
-              <Line key={m.key} type="monotone" dataKey={m.key} name={m.name} stroke={m.color} strokeWidth={2.5}
+              <Line key={m.key} yAxisId={dualAxis ? (m.isPercent ? 'right' : 'left') : 'left'}
+                type="monotone" dataKey={m.key} name={m.name} stroke={m.color} strokeWidth={2.5}
                 dot={showDots ? { stroke: m.color, strokeWidth: 2, r: 4 } : false}>
-                {showLabels && <LabelList dataKey={m.key} position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+                {showLabels && <LabelList dataKey={m.key} position="top" formatter={(v: any) => m.isPercent ? `${Number(v).toFixed(1)}%` : fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
               </Line>
             ))}
           </LineChart>
@@ -279,8 +287,9 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename }
           <BarChart data={data}>
             {axes}
             {visibleMetrics.map(m => (
-              <Bar key={m.key} dataKey={m.key} name={m.name} fill={m.color} radius={[5,5,0,0]}>
-                {showLabels && <LabelList dataKey={m.key} position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+              <Bar key={m.key} yAxisId={dualAxis ? (m.isPercent ? 'right' : 'left') : 'left'}
+                dataKey={m.key} name={m.name} fill={m.color} radius={[5,5,0,0]}>
+                {showLabels && <LabelList dataKey={m.key} position="top" formatter={(v: any) => m.isPercent ? `${Number(v).toFixed(1)}%` : fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
               </Bar>
             ))}
           </BarChart>
@@ -288,8 +297,9 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename }
           <BarChart data={preparedData} layout="vertical" barSize={barSize} barCategoryGap={8}>
             {axes}
             {visibleMetrics.map(m => (
-              <Bar key={m.key} dataKey={m.key} name={m.name} fill={m.color} radius={[0,6,6,0]} stroke="#64748b" strokeWidth={strokeWidth}>
-                {showLabels && <LabelList dataKey={m.key} position="right" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+              <Bar key={m.key} yAxisId={dualAxis ? (m.isPercent ? 'right' : 'left') : 'left'}
+                dataKey={m.key} name={m.name} fill={m.color} radius={[0,6,6,0]} stroke="#64748b" strokeWidth={strokeWidth}>
+                {showLabels && <LabelList dataKey={m.key} position="right" formatter={(v: any) => m.isPercent ? `${Number(v).toFixed(1)}%` : fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
               </Bar>
             ))}
           </BarChart>
@@ -637,8 +647,7 @@ export default function Dashboard() {
       { name: 'Кол-во продаж',   rows: trendWithCalc.map(r => ({ Период: r.label, 'Кол-во продаж': r.quantity })) },
       { name: 'Кол-во чеков',    rows: trendWithCalc.map(r => ({ Период: r.label, 'Кол-во чеков': r.checks })) },
       { name: 'Средний чек',     rows: trendWithCalc.map(r => ({ Период: r.label, 'Средний чек (MDL)': r.avgCheck })) },
-      { name: 'Валовая прибыль', rows: trendWithCalc.map(r => ({ Период: r.label, 'Вал. прибыль (MDL)': r.grossProfit })) },
-      { name: 'Маржа',           rows: trendWithCalc.map(r => ({ Период: r.label, 'Маржа (%)': r.margin })) },
+      { name: 'Вал. прибыль и маржа', rows: trendWithCalc.map(r => ({ Период: r.label, 'Вал. прибыль (MDL)': r.grossProfit, 'Маржа (%)': r.margin })) },
       { name: 'По годам',        rows: yearTrend.map(r => ({ Год: r.year, 'Выручка (MDL)': r.revenue, 'Вал. прибыль (MDL)': r.grossProfit, 'Кол-во': r.quantity })) },
       ...(extraFields.length > 0 ? [{ name: 'Остальное', rows: trendWithCalc.map(r => { const obj: any = { Период: r.label }; extraFields.forEach(f => { obj[f.name] = r[f.key] ?? 0 }); return obj }) }] : [])
     ], `Дашборд_Тренды${yearLabel}`)
@@ -753,8 +762,13 @@ export default function Dashboard() {
               <SingleMetricChart title="Кол-во чеков" data={trendWithCalc} dataKey="checks" xKey="label" color="#06b6d4" formatTooltip={v => v.toLocaleString()} filename={`Кол-во_чеков${yearLabel}`} />
               <SingleMetricChart title="Средний чек" data={trendWithCalc} dataKey="avgCheck" xKey="label" color="#f59e0b" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Средний_чек${yearLabel}`} />
             </div>
-            <SingleMetricChart title="Валовая прибыль" data={trendWithCalc} dataKey="grossProfit" xKey="label" color="#10b981" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Валовая_прибыль${yearLabel}`} />
-            <SingleMetricChart title="Маржа (%)" data={trendWithCalc} dataKey="margin" xKey="label" color="#ec4899" formatTooltip={v => `${v.toFixed(1)}%`} filename={`Маржа${yearLabel}`} />
+            <MultiMetricChart title="Вал. прибыль и маржа" data={trendWithCalc} xKey="label"
+              dualAxis
+              metrics={[
+                { key: 'grossProfit', name: 'Вал. прибыль', color: '#10b981', isPercent: false },
+                { key: 'margin',      name: 'Маржа (%)',     color: '#ec4899', isPercent: true },
+              ]}
+              filename={`Валовая_прибыль_и_маржа${yearLabel}`} />
             <MultiMetricChart title="Остальное" data={trendWithCalc} xKey="label" metrics={extraFields}
               emptyMessage="Здесь будут отображаться дополнительные поля добавленные через Google Sheets или маппинг" filename={`Остальное${yearLabel}`} />
             <MultiMetricChart title="По годам" data={yearTrend} xKey="year"
