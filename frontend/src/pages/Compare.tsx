@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer
+  Tooltip, Legend, ResponsiveContainer, LabelList
 } from 'recharts'
 import * as XLSX from 'xlsx'
 import Navbar from '../components/Navbar'
@@ -79,6 +79,9 @@ interface ChartConfig {
   id: string
   metrics: string[]
   chartType: ChartType
+  showLabels: boolean
+  showDots: boolean
+  normalize: boolean
 }
 
 function buildChartData(flatResults: any[], metrics: string[]) {
@@ -106,7 +109,7 @@ function buildStoreMonthChartData(storeMonthData: any, metrics: string[]) {
   })
 }
 
-// ─── ChartBlock с кнопкой скачивания ─────────────────────────────
+// ─── ChartBlock ───────────────────────────────────────────────────
 function ChartBlock({
   config, flatResults, storeMonthData, isStoreMonthMode, onRemove, onUpdate, chartIndex
 }: {
@@ -114,6 +117,46 @@ function ChartBlock({
   isStoreMonthMode: boolean; onRemove: () => void
   onUpdate: (cfg: ChartConfig) => void; chartIndex: number
 }) {
+  const showLabels = config.showLabels ?? false
+  const showDots   = config.showDots   ?? false
+  const normalize  = config.normalize  ?? false
+
+  const normalizeData = (data: any[], keys: string[]) => {
+    if (!normalize) return data
+    return data.map(row => {
+      const obj: any = { ...row }
+      keys.forEach(k => {
+        const vals = data.map(r => r[k] ?? 0)
+        const max = Math.max(...vals)
+        obj[`__norm_${k}`] = max > 0 ? ((row[k] ?? 0) / max) * 100 : 0
+        obj[`__real_${k}`] = row[k] ?? 0
+      })
+      return obj
+    })
+  }
+
+  const normKey = (k: string) => normalize ? `__norm_${k}` : k
+
+  const buildTooltip = () => ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null
+    return (
+      <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: '10px 14px' }}>
+        <p style={{ color: '#fff', fontSize: 12, marginBottom: 6 }}>{label}</p>
+        {payload.map((entry: any) => {
+          const rawKey = entry.dataKey?.replace('__norm_', '')
+          const realVal = normalize ? entry.payload[`__real_${rawKey}`] : entry.value
+          const met = METRICS.find(x => x.key === rawKey)
+          return (
+            <p key={entry.dataKey} style={{ color: entry.color, fontSize: 12, margin: '2px 0' }}>
+              {entry.name}: <strong>{met ? met.format(realVal ?? 0) : fmt(realVal ?? 0)}</strong>
+              {normalize && <span style={{ color: '#6b7280', fontSize: 11 }}> ({Number(entry.value).toFixed(0)}%)</span>}
+            </p>
+          )
+        })}
+      </div>
+    )
+  }
+
   const handleDownload = () => {
     const metricLabels = config.metrics.map(k => METRICS.find(m => m.key === k)?.label || k).join('+')
     const filename = `Сравнение_График${chartIndex + 1}_${metricLabels}`
@@ -147,22 +190,34 @@ function ChartBlock({
 
   const renderChart = () => {
     if (isStoreMonthMode && storeMonthData) {
-      const data = buildStoreMonthChartData(storeMonthData, config.metrics)
+      const rawData = buildStoreMonthChartData(storeMonthData, config.metrics)
       const keys: string[] = []
       storeMonthData.stores.forEach((s: string) => {
         config.metrics.forEach((m: string) => keys.push(`${s}__${m}`))
       })
-      const ttProps = { contentStyle: { background: '#1f2937', border: '1px solid #374151' }, labelStyle: { color: '#fff' }, itemStyle: { color: '#fff' } }
+      const data = normalizeData(rawData, keys)
+      const yFmt = normalize ? (v: any) => `${Number(v).toFixed(0)}%` : (v: any) => fmt(v)
 
       if (config.chartType === 'line') return (
         <ResponsiveContainer width="100%" height={280}>
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis dataKey="key" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
-            <Tooltip {...ttProps} />
+            <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+            <Tooltip content={buildTooltip()} />
             <Legend />
-            {keys.map((k, i) => <Line key={k} type="monotone" dataKey={k} name={k.replace('__', ' — ')} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} />)}
+            {keys.map((k, i) => (
+              <Line
+                key={k}
+                type="monotone"
+                dataKey={normKey(k)}
+                name={k.replace('__', ' — ')}
+                stroke={COLORS[i % COLORS.length]}
+                strokeWidth={2}
+                dot={showDots ? { stroke: COLORS[i % COLORS.length], strokeWidth: 2, r: 4 } : false}
+                label={showLabels ? { position: 'top', fontSize: 11, fill: COLORS[i % COLORS.length], formatter: (v: any) => fmt(v) } : false}
+              />
+            ))}
           </LineChart>
         </ResponsiveContainer>
       )
@@ -170,11 +225,21 @@ function ChartBlock({
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={data} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
+            <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
             <YAxis type="category" dataKey="key" stroke="#9ca3af" tick={{ fontSize: 10 }} width={80} />
-            <Tooltip {...ttProps} />
+            <Tooltip content={buildTooltip()} />
             <Legend />
-            {keys.map((k, i) => <Bar key={k} dataKey={k} name={k.replace('__', ' — ')} fill={COLORS[i % COLORS.length]} radius={[0,4,4,0]} />)}
+            {keys.map((k, i) => (
+              <Bar
+                key={k}
+                dataKey={normKey(k)}
+                name={k.replace('__', ' — ')}
+                fill={COLORS[i % COLORS.length]}
+                radius={[0,4,4,0]}
+              >
+                {showLabels && <LabelList dataKey={normKey(k)} position="right" formatter={(v: any) => fmt(v)} style={{ fontSize: 11, fill: COLORS[i % COLORS.length] }} />}
+              </Bar>
+            ))}
           </BarChart>
         </ResponsiveContainer>
       )
@@ -183,29 +248,52 @@ function ChartBlock({
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis dataKey="key" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
-            <Tooltip {...ttProps} />
+            <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+            <Tooltip content={buildTooltip()} />
             <Legend />
-            {keys.map((k, i) => <Bar key={k} dataKey={k} name={k.replace('__', ' — ')} fill={COLORS[i % COLORS.length]} radius={[4,4,0,0]} />)}
+            {keys.map((k, i) => (
+              <Bar
+                key={k}
+                dataKey={normKey(k)}
+                name={k.replace('__', ' — ')}
+                fill={COLORS[i % COLORS.length]}
+                radius={[4,4,0,0]}
+              >
+                {showLabels && <LabelList dataKey={normKey(k)} position="top" formatter={(v: any) => fmt(v)} style={{ fontSize: 11, fill: COLORS[i % COLORS.length] }} />}
+              </Bar>
+            ))}
           </BarChart>
         </ResponsiveContainer>
       )
     }
 
-    const data = buildChartData(flatResults, config.metrics)
-    const ttProps = { contentStyle: { background: '#1f2937', border: '1px solid #374151' }, labelStyle: { color: '#fff' }, itemStyle: { color: '#fff' } }
+    // Обычный режим (не store-month)
+    const rawData = buildChartData(flatResults, config.metrics)
+    const data = normalizeData(rawData, config.metrics)
+    const yFmt = normalize ? (v: any) => `${Number(v).toFixed(0)}%` : (v: any) => fmt(v)
 
     if (config.chartType === 'line') return (
       <ResponsiveContainer width="100%" height={280}>
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
           <XAxis dataKey="key" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-          <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
-          <Tooltip {...ttProps} />
+          <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+          <Tooltip content={buildTooltip()} />
           <Legend />
           {config.metrics.map((m, i) => {
             const met = METRICS.find(x => x.key === m)
-            return <Line key={m} type="monotone" dataKey={m} name={met?.label || m} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} />
+            return (
+              <Line
+                key={m}
+                type="monotone"
+                dataKey={normKey(m)}
+                name={met?.label || m}
+                stroke={COLORS[i % COLORS.length]}
+                strokeWidth={2}
+                dot={showDots ? { stroke: COLORS[i % COLORS.length], strokeWidth: 2, r: 4 } : false}
+                label={showLabels ? { position: 'top', fontSize: 11, fill: COLORS[i % COLORS.length], formatter: (v: any) => fmt(v) } : false}
+              />
+            )
           })}
         </LineChart>
       </ResponsiveContainer>
@@ -214,13 +302,23 @@ function ChartBlock({
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={data} layout="vertical">
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-          <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
+          <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
           <YAxis type="category" dataKey="key" stroke="#9ca3af" tick={{ fontSize: 10 }} width={80} />
-          <Tooltip {...ttProps} />
+          <Tooltip content={buildTooltip()} />
           <Legend />
           {config.metrics.map((m, i) => {
             const met = METRICS.find(x => x.key === m)
-            return <Bar key={m} dataKey={m} name={met?.label || m} fill={COLORS[i % COLORS.length]} radius={[0,4,4,0]} />
+            return (
+              <Bar
+                key={m}
+                dataKey={normKey(m)}
+                name={met?.label || m}
+                fill={COLORS[i % COLORS.length]}
+                radius={[0,4,4,0]}
+              >
+                {showLabels && <LabelList dataKey={normKey(m)} position="right" formatter={(v: any) => fmt(v)} style={{ fontSize: 11, fill: COLORS[i % COLORS.length] }} />}
+              </Bar>
+            )
           })}
         </BarChart>
       </ResponsiveContainer>
@@ -230,12 +328,22 @@ function ChartBlock({
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
           <XAxis dataKey="key" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-          <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
-          <Tooltip {...ttProps} />
+          <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+          <Tooltip content={buildTooltip()} />
           <Legend />
           {config.metrics.map((m, i) => {
             const met = METRICS.find(x => x.key === m)
-            return <Bar key={m} dataKey={m} name={met?.label || m} fill={COLORS[i % COLORS.length]} radius={[4,4,0,0]} />
+            return (
+              <Bar
+                key={m}
+                dataKey={normKey(m)}
+                name={met?.label || m}
+                fill={COLORS[i % COLORS.length]}
+                radius={[4,4,0,0]}
+              >
+                {showLabels && <LabelList dataKey={normKey(m)} position="top" formatter={(v: any) => fmt(v)} style={{ fontSize: 11, fill: COLORS[i % COLORS.length] }} />}
+              </Bar>
+            )
           })}
         </BarChart>
       </ResponsiveContainer>
@@ -265,10 +373,25 @@ function ChartBlock({
             </button>
           ))}
         </div>
-        <button onClick={onRemove} className="text-gray-500 hover:text-red-400 text-sm transition">✕ Удалить</button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer">
+            <input type="checkbox" checked={showLabels} onChange={() => onUpdate({ ...config, showLabels: !showLabels })} className="accent-blue-500 w-3.5 h-3.5" />
+            Значения
+          </label>
+          {config.chartType === 'line' && (
+            <label className="flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer">
+              <input type="checkbox" checked={showDots} onChange={() => onUpdate({ ...config, showDots: !showDots })} className="accent-blue-500 w-3.5 h-3.5" />
+              Точки
+            </label>
+          )}
+          <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: normalize ? '#f59e0b' : '#9ca3af' }}>
+            <input type="checkbox" checked={normalize} onChange={() => onUpdate({ ...config, normalize: !normalize })} className="accent-amber-500 w-3.5 h-3.5" />
+            Нормализация
+          </label>
+          <button onClick={onRemove} className="text-gray-500 hover:text-red-400 text-sm transition">✕ Удалить</button>
+        </div>
       </div>
       {renderChart()}
-      {/* Кнопка скачивания под графиком справа */}
       <div className="flex justify-end mt-3">
         <DownloadBtn onClick={handleDownload} title={`Скачать данные графика ${chartIndex + 1}`} />
       </div>
@@ -324,11 +447,9 @@ export default function Compare() {
   const baseItem         = flatResults[0] ?? null
   const hasResults       = flatResults.length > 0 || !!storeMonthData
 
-  // Имя файла на основе параметров
   const modeLabel = { store: 'По_магазинам', month: 'По_месяцам', year: 'По_годам', 'store-month': 'Магазин_по_месяцам' }[mode]
   const baseFilename = `Сравнение_${modeLabel}`
 
-  // Выгрузка таблицы сравнения
   const downloadTable = () => {
     if (isStoreMonthMode && storeMonthData) {
       const sheets = METRICS.filter(m => selectedMetrics.includes(m.key)).map(metric => ({
@@ -357,7 +478,6 @@ export default function Compare() {
     }
   }
 
-  // Выгрузка всех графиков
   const downloadAllCharts = () => {
     if (charts.length === 0) return
     const sheets = charts.map((cfg, idx) => {
@@ -521,7 +641,6 @@ export default function Compare() {
                     ))}
                   </tbody>
                 </table>
-                {/* Кнопка скачивания таблицы */}
                 <div className="flex justify-end p-3 border-t border-gray-700">
                   <DownloadBtn onClick={downloadTable} title="Скачать таблицу сравнения" />
                 </div>
@@ -580,9 +699,9 @@ export default function Compare() {
               </div>
             )}
 
-            {/* Графики — заголовок с кнопками */}
+            {/* Графики */}
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-300">📊 Графики</h3>
+              <h3 className="font-semibold text-gray-300">Графики</h3>
               <div className="flex items-center gap-2">
                 {charts.length > 0 && (
                   <button onClick={downloadAllCharts} title="Скачать все графики"
@@ -593,8 +712,17 @@ export default function Compare() {
                     Скачать все графики
                   </button>
                 )}
-                <button onClick={() => setCharts(prev => [...prev, { id: Date.now().toString(), metrics: selectedMetrics.slice(0, 1), chartType: 'bar' }])}
-                  className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">
+                <button
+                  onClick={() => setCharts(prev => [...prev, {
+                    id: Date.now().toString(),
+                    metrics: selectedMetrics.slice(0, 1),
+                    chartType: 'bar',
+                    showLabels: false,
+                    showDots: false,
+                    normalize: false
+                  }])}
+                  className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition"
+                >
                   + Добавить график
                 </button>
               </div>
