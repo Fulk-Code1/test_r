@@ -311,13 +311,16 @@ export default function Compare() {
       const res = await axios.get(`${API}/compare`, { params })
       setResults(res.data)
       setCharts([])
+      setBaseIndex(0)
     } catch (e) { console.error(e) }
     setLoading(false)
   }
 
   const isStoreMonthMode = !Array.isArray(results) && results?.mode === 'store-month'
   const storeMonthData   = isStoreMonthMode ? results : null
-  const flatResults      = isStoreMonthMode ? [] : (Array.isArray(results) ? results : [])
+  const rawFlatResults   = isStoreMonthMode ? [] : (Array.isArray(results) ? results : [])
+  const [baseIndex, setBaseIndex] = useState(0)
+  const flatResults      = baseIndex === 0 ? rawFlatResults : [...rawFlatResults].reverse()
   const baseItem         = flatResults[0] ?? null
   const hasResults       = flatResults.length > 0 || !!storeMonthData
 
@@ -470,6 +473,15 @@ export default function Compare() {
               className="w-full mt-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 py-2 rounded-lg text-sm font-medium transition">
               {loading ? 'Загрузка...' : '▶ Сравнить'}
             </button>
+            {rawFlatResults.length >= 2 && (
+              <button onClick={() => setBaseIndex(i => i === 0 ? 1 : 0)}
+                title="Поменять базу сравнения"
+                className="w-full mt-2 flex items-center justify-center gap-2 bg-gray-700 hover:bg-amber-700 py-2 rounded-lg text-sm transition text-gray-300 hover:text-white">
+                ⇄ База: <span className="font-medium text-white">{flatResults[0]?.key}</span>
+                <span className="text-gray-500">→</span>
+                <span className="text-amber-400">{flatResults[flatResults.length - 1]?.key}</span>
+              </button>
+            )}
           </div>
         </div>
 
