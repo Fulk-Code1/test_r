@@ -752,7 +752,7 @@ export default function Dashboard() {
               metrics={[
                 { key: 'avgCheck',            name: 'Ср. чек (MDL)',          color: '#f59e0b' },
                 { key: 'avgQuantityPerStore',  name: 'Ср. кол-во на магазин',  color: '#8b5cf6', isSecondary: true },
-                { key: 'margin',              name: 'Маржа (%)',               color: '#ec4899', isPercent: true },
+                { key: 'margin',              name: 'Маржа (%)',               color: '#ec4899', isPercent: true, isSecondary: true },
               ]}
               filename={`Ср_чек_кол-во_маржа${yearLabel}`} />
             <MultiMetricChart title="Вал. прибыль и маржа" data={trendWithCalc} xKey="label" dualAxis
