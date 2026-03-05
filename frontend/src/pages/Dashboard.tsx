@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -313,6 +313,166 @@ function SortTh({ col, label, sortBy, sortDir, onSort }: { col: string; label: s
   )
 }
 
+// ─── Дропдаун магазинов ───────────────────────────────────────────
+function StoreDropdown({ stores, selected, onChange }: {
+  stores: string[]; selected: string[]; onChange: (s: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = React.useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+  const toggle = (s: string) => onChange(selected.includes(s) ? selected.filter(x => x !== s) : [...selected, s])
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen(v => !v)}
+        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm border transition
+          ${selected.length > 0 ? 'bg-blue-600/20 border-blue-500 text-white' : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'}`}>
+        <span>{selected.length > 0 ? `Выбрано: ${selected.length}` : 'Все магазины'}</span>
+        <span className="text-gray-400 ml-2">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full min-w-[200px] bg-gray-800 border border-gray-600 rounded-xl shadow-2xl p-2 space-y-0.5 max-h-64 overflow-y-auto">
+          <button onClick={() => onChange([])}
+            className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:bg-gray-700 transition">
+            Снять все
+          </button>
+          {stores.map(s => (
+            <label key={s} className="flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-gray-700 transition text-sm text-gray-200">
+              <input type="checkbox" className="accent-blue-500" checked={selected.includes(s)}
+                onChange={() => toggle(s)} />
+              {s}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Заготовленные значения для диапазонов ────────────────────────
+const RANGE_PRESETS: Record<string, { label: string; value: string }[]> = {
+  MDL: [
+    { label: '10,000', value: '10000' },
+    { label: '50,000', value: '50000' },
+    { label: '100,000', value: '100000' },
+    { label: '250,000', value: '250000' },
+    { label: '500,000', value: '500000' },
+    { label: '1,000,000', value: '1000000' },
+  ],
+  '%': [
+    { label: '5%', value: '5' },
+    { label: '10%', value: '10' },
+    { label: '15%', value: '15' },
+    { label: '20%', value: '20' },
+    { label: '30%', value: '30' },
+    { label: '50%', value: '50' },
+  ],
+  '': [
+    { label: '100', value: '100' },
+    { label: '500', value: '500' },
+    { label: '1,000', value: '1000' },
+    { label: '5,000', value: '5000' },
+    { label: '10,000', value: '10000' },
+  ],
+}
+
+// ─── Дропдаун диапазона ───────────────────────────────────────────
+function RangeDropdown({ label, unit, min, setMin, max, setMax, onApply }: {
+  label: string; unit: string
+  min: string; setMin: (v: string) => void
+  max: string; setMax: (v: string) => void
+  onApply: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [focusedField, setFocusedField] = useState<'min' | 'max' | null>(null)
+  const ref = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setFocusedField(null) } }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const isActive = min !== '' || max !== ''
+  const presets = RANGE_PRESETS[unit] ?? RANGE_PRESETS['']
+
+  const applyPreset = (value: string) => {
+    if (focusedField === 'min') { setMin(value); onApply() }
+    else if (focusedField === 'max') { setMax(value); onApply() }
+  }
+
+  const displayLabel = isActive
+    ? `${label}: ${min ? (unit === 'MDL' ? Number(min).toLocaleString() : min + (unit ? unit : '')) : '—'} → ${max ? (unit === 'MDL' ? Number(max).toLocaleString() : max + (unit ? unit : '')) : '—'}`
+    : label
+
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen(v => !v)}
+        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition
+          ${isActive ? 'bg-blue-600/20 border-blue-500 text-white' : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'}`}>
+        <span className="truncate">{displayLabel}</span>
+        <span className="text-gray-400 ml-1 shrink-0">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 left-0 w-64 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl p-4 space-y-3">
+          <p className="text-xs text-gray-400 font-medium">{label}{unit ? ` (${unit})` : ''}</p>
+
+          {/* Поля ввода */}
+          <div className="space-y-2">
+            <div className="relative">
+              <input type="number" placeholder="От" value={min}
+                onFocus={() => setFocusedField('min')}
+                onChange={e => { setMin(e.target.value); onApply() }}
+                className={`w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm outline-none transition
+                  ${focusedField === 'min' ? 'ring-2 ring-blue-500' : 'ring-1 ring-gray-600'}`} />
+              {unit && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">{unit}</span>}
+            </div>
+            <div className="relative">
+              <input type="number" placeholder="До" value={max}
+                onFocus={() => setFocusedField('max')}
+                onChange={e => { setMax(e.target.value); onApply() }}
+                className={`w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm outline-none transition
+                  ${focusedField === 'max' ? 'ring-2 ring-blue-500' : 'ring-1 ring-gray-600'}`} />
+              {unit && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">{unit}</span>}
+            </div>
+          </div>
+
+          {/* Заготовленные значения */}
+          <div>
+            <p className="text-xs text-gray-500 mb-1.5">
+              {focusedField ? `Быстрый выбор → ${focusedField === 'min' ? 'От' : 'До'}` : 'Выберите поле выше'}
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {presets.map(p => (
+                <button key={p.value} onClick={() => applyPreset(p.value)}
+                  disabled={!focusedField}
+                  className={`px-2 py-1 rounded text-xs transition
+                    ${!focusedField ? 'bg-gray-700/50 text-gray-600 cursor-not-allowed' :
+                      (focusedField === 'min' ? min === p.value : max === p.value)
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 hover:bg-blue-600/40 text-gray-300 hover:text-white'}`}>
+                  {p.label}{unit === '%' ? '' : ''}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {isActive && (
+            <button onClick={() => { setMin(''); setMax(''); onApply(); setOpen(false); setFocusedField(null) }}
+              className="w-full text-xs text-red-400 hover:text-red-300 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 transition">
+              ✕ Очистить
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────
 export default function Dashboard() {
   const user = JSON.parse(localStorage.getItem('user') || 'null')
@@ -355,6 +515,32 @@ export default function Dashboard() {
   const [sortBy,  setSortBy]  = useState('year')
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
   const [filtersOpen, setFiltersOpen] = useState(false)
+
+  // Видимые колонки — все по умолчанию
+  const ALL_COLUMNS = [
+    { key: 'year',        label: 'Год' },
+    { key: 'month',       label: 'Месяц' },
+    { key: 'store',       label: 'Магазин' },
+    { key: 'revenue',     label: 'Выручка' },
+    { key: 'grossProfit', label: 'Вал. прибыль' },
+    { key: 'margin',      label: 'Маржа' },
+    { key: 'avgCheck',    label: 'Ср. чек' },
+    { key: 'quantity',    label: 'Кол-во продаж' },
+    { key: 'checks',      label: 'Чеки' },
+  ]
+  // Определяем какие колонки подсветить/показать на основе активных фильтров диапазонов
+  const activeRangeFilters = new Set<string>()
+  if (filterRevenueMin || filterRevenueMax)     { activeRangeFilters.add('revenue') }
+  if (filterGrossMin   || filterGrossMax)       { activeRangeFilters.add('grossProfit') }
+  if (filterMarginMin  || filterMarginMax)      { activeRangeFilters.add('margin') }
+  if (filterAvgCheckMin|| filterAvgCheckMax)    { activeRangeFilters.add('avgCheck') }
+  if (filterChecksMin  || filterChecksMax)      { activeRangeFilters.add('checks') }
+  if (filterQuantityMin|| filterQuantityMax)    { activeRangeFilters.add('quantity') }
+  // Если выбраны фильтры диапазонов — показываем только год/месяц/магазин + отфильтрованные колонки
+  // Если фильтров нет — показываем все
+  const visibleColumns = activeRangeFilters.size > 0
+    ? ALL_COLUMNS.filter(c => ['year','month','store'].includes(c.key) || activeRangeFilters.has(c.key))
+    : ALL_COLUMNS
 
   const resetFilters = () => {
     setFilterYears([]); setFilterMonths([]); setFilterStores([]); setFilterSearch('')
@@ -617,7 +803,7 @@ export default function Dashboard() {
               <button onClick={() => setFiltersOpen(v => !v)}
                 className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium hover:bg-gray-700/50 transition rounded-xl">
                 <div className="flex items-center gap-3">
-                  <span>🔍 Фильтры</span>
+                  <span>Фильтры</span>
                   {activeFilterCount > 0 && (
                     <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">{activeFilterCount}</span>
                   )}
@@ -664,43 +850,30 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    {/* Магазины */}
-                    <div>
+                    {/* Магазины — дропдаун */}
+                    <div className="relative">
                       <label className="text-xs text-gray-400 mb-2 block">Магазин</label>
-                      <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
-                        {allStores.map(s => (
-                          <label key={s} className="flex items-center gap-2 text-sm cursor-pointer hover:text-white text-gray-300 py-0.5">
-                            <input type="checkbox" className="accent-blue-500"
-                              checked={filterStores.includes(s)}
-                              onChange={() => { setFilterStores(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]); setPage(1) }} />
-                            {s}
-                          </label>
-                        ))}
-                      </div>
+                      <StoreDropdown
+                        stores={allStores}
+                        selected={filterStores}
+                        onChange={(s) => { setFilterStores(s); setPage(1) }}
+                      />
                     </div>
                   </div>
 
-                  {/* Числовые диапазоны */}
+                  {/* Числовые диапазоны — дропдауны */}
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
                     {[
-                      { label: 'Выручка (MDL)', min: filterRevenueMin, setMin: setFilterRevenueMin, max: filterRevenueMax, setMax: setFilterRevenueMax },
-                      { label: 'Вал. прибыль (MDL)', min: filterGrossMin, setMin: setFilterGrossMin, max: filterGrossMax, setMax: setFilterGrossMax },
-                      { label: 'Маржа (%)', min: filterMarginMin, setMin: setFilterMarginMin, max: filterMarginMax, setMax: setFilterMarginMax },
-                      { label: 'Ср. чек (MDL)', min: filterAvgCheckMin, setMin: setFilterAvgCheckMin, max: filterAvgCheckMax, setMax: setFilterAvgCheckMax },
-                      { label: 'Чеки', min: filterChecksMin, setMin: setFilterChecksMin, max: filterChecksMax, setMax: setFilterChecksMax },
-                      { label: 'Кол-во продаж', min: filterQuantityMin, setMin: setFilterQuantityMin, max: filterQuantityMax, setMax: setFilterQuantityMax },
+                      { label: 'Выручка', unit: 'MDL', min: filterRevenueMin, setMin: setFilterRevenueMin, max: filterRevenueMax, setMax: setFilterRevenueMax },
+                      { label: 'Вал. прибыль', unit: 'MDL', min: filterGrossMin, setMin: setFilterGrossMin, max: filterGrossMax, setMax: setFilterGrossMax },
+                      { label: 'Маржа', unit: '%', min: filterMarginMin, setMin: setFilterMarginMin, max: filterMarginMax, setMax: setFilterMarginMax },
+                      { label: 'Ср. чек', unit: 'MDL', min: filterAvgCheckMin, setMin: setFilterAvgCheckMin, max: filterAvgCheckMax, setMax: setFilterAvgCheckMax },
+                      { label: 'Чеки', unit: '', min: filterChecksMin, setMin: setFilterChecksMin, max: filterChecksMax, setMax: setFilterChecksMax },
+                      { label: 'Кол-во продаж', unit: '', min: filterQuantityMin, setMin: setFilterQuantityMin, max: filterQuantityMax, setMax: setFilterQuantityMax },
                     ].map(f => (
-                      <div key={f.label}>
-                        <label className="text-xs text-gray-400 mb-1 block">{f.label}</label>
-                        <div className="flex gap-1">
-                          <input type="number" placeholder="От" value={f.min}
-                            onChange={e => { f.setMin(e.target.value); setPage(1) }}
-                            className="w-full bg-gray-700 text-white rounded px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-blue-500" />
-                          <input type="number" placeholder="До" value={f.max}
-                            onChange={e => { f.setMax(e.target.value); setPage(1) }}
-                            className="w-full bg-gray-700 text-white rounded px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-blue-500" />
-                        </div>
-                      </div>
+                      <RangeDropdown key={f.label} label={f.label} unit={f.unit}
+                        min={f.min} setMin={f.setMin} max={f.max} setMax={f.setMax}
+                        onApply={() => setPage(1)} />
                     ))}
                   </div>
 
@@ -726,15 +899,9 @@ export default function Dashboard() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-700/50">
                     <tr>
-                      <SortTh col="year"        label="Год" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                      <SortTh col="month"       label="Месяц" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                      <SortTh col="store"       label="Магазин" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                      <SortTh col="revenue"     label="Выручка" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                      <SortTh col="grossProfit" label="Вал. прибыль" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                      <SortTh col="margin"      label="Маржа" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                      <SortTh col="avgCheck"    label="Ср. чек" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                      <SortTh col="quantity"    label="Кол-во продаж" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
-                      <SortTh col="checks"      label="Чеки" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                      {visibleColumns.map(col => (
+                        <SortTh key={col.key} col={col.key} label={col.label} sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                      ))}
                       {extraFields.map(f => (
                         <th key={f.key} className="px-4 py-3 text-left text-gray-400 font-medium whitespace-nowrap">{f.name}</th>
                       ))}
@@ -744,17 +911,20 @@ export default function Dashboard() {
                     {table.map((row, i) => {
                       const margin = row.revenue > 0 ? (row.grossProfit / row.revenue) * 100 : 0
                       const avgCheck = row.checks > 0 ? row.revenue / row.checks : 0
+                      const cellMap: Record<string, React.ReactNode> = {
+                        year:        <td key="year"        className="px-4 py-3 text-gray-400">{row.year}</td>,
+                        month:       <td key="month"       className="px-4 py-3 text-gray-400">{MONTHS[row.month - 1]}</td>,
+                        store:       <td key="store"       className="px-4 py-3 text-blue-400 font-medium">{row.store}</td>,
+                        revenue:     <td key="revenue"     className="px-4 py-3 text-blue-400">{fmt(row.revenue)}</td>,
+                        grossProfit: <td key="grossProfit" className="px-4 py-3 text-green-400">{fmt(row.grossProfit ?? 0)}</td>,
+                        margin:      <td key="margin"      className="px-4 py-3 text-pink-400">{fmtPct(margin)}</td>,
+                        avgCheck:    <td key="avgCheck"    className="px-4 py-3 text-yellow-400">{fmt(avgCheck)}</td>,
+                        quantity:    <td key="quantity"    className="px-4 py-3">{(row.quantity ?? 0).toLocaleString()}</td>,
+                        checks:      <td key="checks"      className="px-4 py-3 text-cyan-400">{(row.checks ?? 0).toLocaleString()}</td>,
+                      }
                       return (
                         <tr key={i} className="hover:bg-gray-700/30 transition">
-                          <td className="px-4 py-3 text-gray-400">{row.year}</td>
-                          <td className="px-4 py-3 text-gray-400">{MONTHS[row.month - 1]}</td>
-                          <td className="px-4 py-3 text-blue-400 font-medium">{row.store}</td>
-                          <td className="px-4 py-3 text-blue-400">{fmt(row.revenue)}</td>
-                          <td className="px-4 py-3 text-green-400">{fmt(row.grossProfit ?? 0)}</td>
-                          <td className="px-4 py-3 text-pink-400">{fmtPct(margin)}</td>
-                          <td className="px-4 py-3 text-yellow-400">{fmt(avgCheck)}</td>
-                          <td className="px-4 py-3">{(row.quantity ?? 0).toLocaleString()}</td>
-                          <td className="px-4 py-3 text-cyan-400">{(row.checks ?? 0).toLocaleString()}</td>
+                          {visibleColumns.map(col => cellMap[col.key])}
                           {extraFields.map(f => (
                             <td key={f.key} className="px-4 py-3 text-orange-400">
                               {row.extraData?.[f.key] ?? row[f.key] ?? '—'}
