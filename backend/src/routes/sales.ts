@@ -13,17 +13,22 @@ function calcMetrics(revenue: number, grossProfit: number, checks: number, quant
 router.get('/kpi', async (req: Request, res: Response) => {
   const { year } = req.query
   const where = year ? { year: parseInt(year as string) } : {}
-  const agg = await prisma.saleRecord.aggregate({
-    where,
-    _sum: { revenue: true, quantity: true, checks: true, grossProfit: true },
-    _count: { id: true },
-  })
+  const [agg, storeCount] = await Promise.all([
+    prisma.saleRecord.aggregate({
+      where,
+      _sum: { revenue: true, quantity: true, checks: true, grossProfit: true },
+      _count: { id: true },
+    }),
+    prisma.saleRecord.findMany({ where, select: { store: true }, distinct: ['store'] }),
+  ])
   const totalRevenue = agg._sum.revenue || 0
   const totalGrossProfit = agg._sum.grossProfit || 0
   const totalChecks = agg._sum.checks || 0
   const totalQuantity = agg._sum.quantity || 0
+  const uniqueStores = storeCount.length || 1
   const { margin, avgCheck, fillRate } = calcMetrics(totalRevenue, totalGrossProfit, totalChecks, totalQuantity)
-  res.json({ totalRevenue, totalGrossProfit, totalChecks, totalQuantity, margin, avgCheck, fillRate, recordCount: agg._count.id })
+  const avgQuantityPerStore = Math.round(totalQuantity / uniqueStores)
+  res.json({ totalRevenue, totalGrossProfit, totalChecks, totalQuantity, margin, avgCheck, fillRate, recordCount: agg._count.id, avgQuantityPerStore, uniqueStores })
 })
 
 router.get('/by-year', async (req: Request, res: Response) => {
@@ -62,22 +67,42 @@ router.get('/by-store', async (req: Request, res: Response) => {
 router.get('/trend', async (req: Request, res: Response) => {
   const { year } = req.query
   const where = year ? { year: parseInt(year as string) } : {}
-  const data = await prisma.saleRecord.groupBy({
-    by: ['year', 'month'],
-    where,
-    _sum: { revenue: true, quantity: true, checks: true, grossProfit: true },
-    orderBy: [{ year: 'asc' }, { month: 'asc' }],
+  const [data, storesByMonth] = await Promise.all([
+    prisma.saleRecord.groupBy({
+      by: ['year', 'month'],
+      where,
+      _sum: { revenue: true, quantity: true, checks: true, grossProfit: true },
+      orderBy: [{ year: 'asc' }, { month: 'asc' }],
+    }),
+    prisma.saleRecord.groupBy({
+      by: ['year', 'month', 'store'],
+      where,
+      orderBy: [{ year: 'asc' }, { month: 'asc' }],
+    }),
+  ])
+  // Считаем кол-во уникальных магазинов за каждый месяц
+  const storeCountMap: Record<string, number> = {}
+  storesByMonth.forEach(r => {
+    const key = `${r.year}-${r.month}`
+    storeCountMap[key] = (storeCountMap[key] || 0) + 1
   })
   const months = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
-  res.json(data.map(d => ({
-    label: `${months[d.month-1]} ${d.year}`,
-    year: d.year,
-    month: d.month,
-    revenue: d._sum.revenue || 0,
-    grossProfit: d._sum.grossProfit || 0,
-    checks: d._sum.checks || 0,
-    quantity: d._sum.quantity || 0,
-  })))
+  res.json(data.map(d => {
+    const key = `${d.year}-${d.month}`
+    const storeCount = storeCountMap[key] || 1
+    const quantity = d._sum.quantity || 0
+    return {
+      label: `${months[d.month-1]} ${d.year}`,
+      year: d.year,
+      month: d.month,
+      revenue: d._sum.revenue || 0,
+      grossProfit: d._sum.grossProfit || 0,
+      checks: d._sum.checks || 0,
+      quantity,
+      storeCount,
+      avgQuantityPerStore: Math.round(quantity / storeCount),
+    }
+  }))
 })
 
 router.get('/table', async (req: Request, res: Response) => {

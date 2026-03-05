@@ -633,6 +633,7 @@ export default function Dashboard() {
     ...r,
     avgCheck: r.checks > 0 ? Math.round(r.revenue / r.checks) : 0,
     margin: r.revenue > 0 ? parseFloat(((r.grossProfit / r.revenue) * 100).toFixed(2)) : 0,
+    avgQuantityPerStore: r.avgQuantityPerStore ?? 0,
   }))
 
   const yearLabel = selectedYear ? `_${selectedYear}` : ''
@@ -746,10 +747,14 @@ export default function Dashboard() {
               <SingleMetricChart title="Выручка" data={trendWithCalc} dataKey="revenue" xKey="label" color="#3b82f6" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Выручка${yearLabel}`} />
               <SingleMetricChart title="Кол-во продаж (наполненность)" data={trendWithCalc} dataKey="quantity" xKey="label" color="#8b5cf6" formatTooltip={v => v.toLocaleString()} filename={`Кол-во_продаж${yearLabel}`} />
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SingleMetricChart title="Кол-во чеков" data={trendWithCalc} dataKey="checks" xKey="label" color="#06b6d4" formatTooltip={v => v.toLocaleString()} filename={`Кол-во_чеков${yearLabel}`} />
-              <SingleMetricChart title="Средний чек" data={trendWithCalc} dataKey="avgCheck" xKey="label" color="#f59e0b" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Средний_чек${yearLabel}`} />
-            </div>
+            <SingleMetricChart title="Кол-во чеков" data={trendWithCalc} dataKey="checks" xKey="label" color="#06b6d4" formatTooltip={v => v.toLocaleString()} filename={`Кол-во_чеков${yearLabel}`} />
+            <MultiMetricChart title="Ср. чек / Ср. кол-во на магазин / Маржа" data={trendWithCalc} xKey="label" dualAxis
+              metrics={[
+                { key: 'avgCheck',            name: 'Ср. чек (MDL)',          color: '#f59e0b' },
+                { key: 'avgQuantityPerStore',  name: 'Ср. кол-во на магазин',  color: '#8b5cf6', isSecondary: true },
+                { key: 'margin',              name: 'Маржа (%)',               color: '#ec4899', isPercent: true },
+              ]}
+              filename={`Ср_чек_кол-во_маржа${yearLabel}`} />
             <MultiMetricChart title="Вал. прибыль и маржа" data={trendWithCalc} xKey="label" dualAxis
               metrics={[
                 { key: 'grossProfit', name: 'Вал. прибыль', color: '#10b981', isPercent: false },
