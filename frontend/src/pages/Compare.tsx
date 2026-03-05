@@ -439,11 +439,15 @@ export default function Compare() {
           </div>
 
           <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-            <h3 className="text-sm font-semibold mb-3 text-gray-300">Месяцы</h3>
+            <h3 className={`text-sm font-semibold mb-3 ${mode === 'year' ? 'text-gray-600' : 'text-gray-300'}`}>
+              Месяцы {mode === 'year' && <span className="text-xs font-normal">(недоступно в режиме «По годам»)</span>}
+            </h3>
             <div className="grid grid-cols-3 gap-1 mb-4">
               {MONTHS.map((m, i) => (
-                <button key={i} onClick={() => toggleItem(selectedMonths, setSelectedMonths, i + 1)}
-                  className={`px-2 py-1 rounded text-xs transition ${selectedMonths.includes(i + 1) ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
+                <button key={i}
+                  disabled={mode === 'year'}
+                  onClick={() => toggleItem(selectedMonths, setSelectedMonths, i + 1)}
+                  className={`px-2 py-1 rounded text-xs transition ${mode === 'year' ? 'opacity-30 cursor-not-allowed' : selectedMonths.includes(i + 1) ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
                   {m}
                 </button>
               ))}
