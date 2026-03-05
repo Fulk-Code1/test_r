@@ -12,35 +12,28 @@ const API = import.meta.env.VITE_API_URL || '/api'
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316', '#14b8a6', '#a855f7']
 const MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
 const MONTHS_FULL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']
-
 const EXCLUDED_FROM_EXTRA = new Set(['revenue', 'quantity', 'checks', 'avgCheck', 'grossProfit', 'margin', 'label', 'year', 'month'])
 
 // ─── Excel helpers ───────────────────────────────────────────────
 function xlsxDownload(rows: Record<string, any>[], filename: string, sheetName = 'Данные') {
   if (!rows?.length) return
   const ws = XLSX.utils.json_to_sheet(rows)
-  ws['!cols'] = Object.keys(rows[0]).map(k => ({
-    wch: Math.max(k.length, ...rows.map(r => String(r[k] ?? '').length)) + 2
-  }))
+  ws['!cols'] = Object.keys(rows[0]).map(k => ({ wch: Math.max(k.length, ...rows.map(r => String(r[k] ?? '').length)) + 2 }))
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31))
   XLSX.writeFile(wb, `${filename}.xlsx`)
 }
-
 function xlsxDownloadMulti(sheets: { name: string; rows: Record<string, any>[] }[], filename: string) {
   const wb = XLSX.utils.book_new()
   sheets.forEach(({ name, rows }) => {
     if (!rows?.length) return
     const ws = XLSX.utils.json_to_sheet(rows)
-    ws['!cols'] = Object.keys(rows[0]).map(k => ({
-      wch: Math.max(k.length, ...rows.map(r => String(r[k] ?? '').length)) + 2
-    }))
+    ws['!cols'] = Object.keys(rows[0]).map(k => ({ wch: Math.max(k.length, ...rows.map(r => String(r[k] ?? '').length)) + 2 }))
     XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31))
   })
   XLSX.writeFile(wb, `${filename}.xlsx`)
 }
 
-// Иконка скачивания
 function DownloadBtn({ onClick, title }: { onClick: () => void; title?: string }) {
   return (
     <button onClick={onClick} title={title || 'Скачать Excel'}
@@ -53,7 +46,6 @@ function DownloadBtn({ onClick, title }: { onClick: () => void; title?: string }
   )
 }
 
-// ─── Форматирование ───────────────────────────────────────────────
 function fmt(n: number) {
   if (n >= 1_000_000) return `${(n/1_000_000).toFixed(1)}M MDL`
   if (n >= 1_000) return `${(n/1_000).toFixed(0)}K MDL`
@@ -96,7 +88,6 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
   const preparedData = chartType === 'bar-horizontal'
     ? [...data].sort((a, b) => (b[dataKey] || 0) - (a[dataKey] || 0)).slice(0, showAllHorizontal ? data.length : 10)
     : data
-
   const dynamicHeight = chartType === 'bar-horizontal' ? 90 + preparedData.length * 42 : 320
   const barSize = chartType === 'bar-horizontal' ? (showAllHorizontal ? 16 : 28) : undefined
   const strokeWidth = chartType === 'bar-horizontal' ? (showAllHorizontal ? 0.5 : 1.5) : undefined
@@ -105,11 +96,6 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
       formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: color }} />
   ) : null
   const xInterval = Math.floor(data.length / 10)
-
-  const handleDownload = () => {
-    const rows = data.map(r => ({ [xKey]: r[xKey], [title]: r[dataKey] ?? 0 }))
-    xlsxDownload(rows, filename, title)
-  }
 
   return (
     <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
@@ -166,19 +152,18 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
           </BarChart>
         )}
       </ResponsiveContainer>
-      {/* Кнопка скачивания под графиком справа */}
       <div className="flex justify-end mt-3">
-        <DownloadBtn onClick={handleDownload} title={`Скачать «${title}»`} />
+        <DownloadBtn onClick={() => xlsxDownload(data.map(r => ({ [xKey]: r[xKey], [title]: r[dataKey] ?? 0 })), filename, title)} title={`Скачать «${title}»`} />
       </div>
     </div>
   )
 }
 
 // ─── MultiMetricChart ─────────────────────────────────────────────
-function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, dualAxis }: {
+function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, dualAxis, normalize }: {
   title: string; data: any[]; xKey: string
-  metrics: { key: string; name: string; color: string; isPercent?: boolean }[]
-  emptyMessage?: string; filename: string; dualAxis?: boolean
+  metrics: { key: string; name: string; color: string; isPercent?: boolean; isSecondary?: boolean }[]
+  emptyMessage?: string; filename: string; dualAxis?: boolean; normalize?: boolean
 }) {
   const [chartType, setChartType] = useState<ChartType>('line')
   const [active, setActive] = useState<string[]>(metrics.map(m => m.key))
@@ -202,6 +187,17 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
   const strokeWidth = chartType === 'bar-horizontal' ? (showAllHorizontal ? 0.5 : 1.5) : undefined
   const xInterval = Math.floor(data.length / 10)
 
+  // Нормализация: каждый ряд приводим к 0-100 для читаемости на одной оси
+  const normalizedData = normalize ? data.map(row => {
+    const obj: any = { ...row }
+    metrics.forEach(m => {
+      const vals = data.map(r => r[m.key] ?? 0)
+      const max = Math.max(...vals)
+      obj[`__norm_${m.key}`] = max > 0 ? ((row[m.key] ?? 0) / max) * 100 : 0
+    })
+    return obj
+  }) : data
+
   const handleDownload = () => {
     const rows = data.map(r => {
       const obj: any = { [xKey]: r[xKey] }
@@ -224,18 +220,47 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
     <>
       <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
       <XAxis dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
-      <YAxis yAxisId="left" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
-      {dualAxis && (
-        <YAxis yAxisId="right" orientation="right" stroke="#ec4899"
-          tick={{ fontSize: 12 }} tickFormatter={v => `${v.toFixed(1)}%`} domain={[0, 'auto']} />
+      <YAxis yAxisId="left" stroke="#9ca3af" tick={{ fontSize: 12 }}
+        tickFormatter={v => normalize ? `${v.toFixed(0)}%` : fmtShort(v)}
+        domain={normalize ? [0, 100] : undefined} />
+      {dualAxis && !normalize && (
+        <YAxis yAxisId="right" orientation="right" stroke="#3b82f6"
+          tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} domain={[0, 'auto']} />
       )}
-      <Tooltip formatter={(v: any, name?: string) => {
-        const m = metrics.find(x => x.name === name)
-        return m?.isPercent ? `${Number(v).toFixed(1)}%` : `${Number(v).toLocaleString()} MDL`
-      }} {...ttProps} />
+      <Tooltip content={({ active, payload, label }) => {
+        if (!active || !payload?.length) return null
+        return (
+          <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: '10px 14px' }}>
+            <p style={{ color: '#fff', fontSize: 13, marginBottom: 6 }}>{label}</p>
+            {payload.map((entry: any) => {
+              const m = metrics.find(x => x.name === entry.name)
+              const realVal = normalize ? entry.payload[m?.key || ''] : entry.value
+              const formatted = m?.isPercent
+                ? `${Number(realVal).toFixed(1)}%`
+                : m?.isSecondary
+                  ? Number(realVal).toLocaleString()
+                  : `${Number(realVal).toLocaleString()} MDL`
+              return (
+                <p key={entry.name} style={{ color: entry.color, fontSize: 13, margin: '2px 0' }}>
+                  {entry.name}: <strong>{formatted}</strong>
+                </p>
+              )
+            })}
+          </div>
+        )
+      }} />
       <Legend wrapperStyle={{ fontSize: 13 }} />
     </>
   )
+
+  const getYAxisId = (m: { isPercent?: boolean; isSecondary?: boolean }) => {
+    if (normalize) return 'left'
+    if (dualAxis) return (m.isPercent || m.isSecondary) ? 'right' : 'left'
+    return 'left'
+  }
+
+  const chartData = normalize ? normalizedData : data
+  const chartDataKey = (m: { key: string }) => normalize ? `__norm_${m.key}` : m.key
 
   return (
     <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
@@ -273,39 +298,45 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
       </div>
       <ResponsiveContainer width="100%" height={dynamicHeight}>
         {chartType === 'line' ? (
-          <LineChart data={data}>
+          <LineChart data={chartData}>
             {axes}
             {visibleMetrics.map(m => (
-              <Line key={m.key} yAxisId={dualAxis ? (m.isPercent ? 'right' : 'left') : 'left'}
-                type="monotone" dataKey={m.key} name={m.name} stroke={m.color} strokeWidth={2.5}
+              <Line key={m.key} yAxisId={getYAxisId(m)}
+                type="monotone" dataKey={chartDataKey(m)} name={m.name} stroke={m.color} strokeWidth={2.5}
                 dot={showDots ? { stroke: m.color, strokeWidth: 2, r: 4 } : false}>
-                {showLabels && <LabelList dataKey={m.key} position="top" formatter={(v: any) => m.isPercent ? `${Number(v).toFixed(1)}%` : fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+                {showLabels && <LabelList dataKey={chartDataKey(m)} position="top"
+                  formatter={(v: any) => m.isPercent ? `${Number(v).toFixed(1)}%` : fmtShort(v)}
+                  style={{ fontSize: 11, fill: m.color }} />}
               </Line>
             ))}
           </LineChart>
         ) : chartType === 'bar' ? (
-          <BarChart data={data}>
+          <BarChart data={chartData}>
             {axes}
             {visibleMetrics.map(m => (
-              <Bar key={m.key} yAxisId={dualAxis ? (m.isPercent ? 'right' : 'left') : 'left'}
-                dataKey={m.key} name={m.name} fill={m.color} radius={[5,5,0,0]}>
-                {showLabels && <LabelList dataKey={m.key} position="top" formatter={(v: any) => m.isPercent ? `${Number(v).toFixed(1)}%` : fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+              <Bar key={m.key} yAxisId={getYAxisId(m)}
+                dataKey={chartDataKey(m)} name={m.name} fill={m.color} radius={[5,5,0,0]}>
+                {showLabels && <LabelList dataKey={chartDataKey(m)} position="top"
+                  formatter={(v: any) => m.isPercent ? `${Number(v).toFixed(1)}%` : fmtShort(v)}
+                  style={{ fontSize: 11, fill: m.color }} />}
               </Bar>
             ))}
           </BarChart>
         ) : (
-          <BarChart data={preparedData} layout="vertical" barSize={barSize} barCategoryGap={8}>
+          <BarChart data={normalize ? normalizedData.slice(0, showAllHorizontal ? data.length : 10) : preparedData}
+            layout="vertical" barSize={barSize} barCategoryGap={8}>
             {axes}
             {visibleMetrics.map(m => (
-              <Bar key={m.key} yAxisId={dualAxis ? (m.isPercent ? 'right' : 'left') : 'left'}
-                dataKey={m.key} name={m.name} fill={m.color} radius={[0,6,6,0]} stroke="#64748b" strokeWidth={strokeWidth}>
-                {showLabels && <LabelList dataKey={m.key} position="right" formatter={(v: any) => m.isPercent ? `${Number(v).toFixed(1)}%` : fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+              <Bar key={m.key} yAxisId={getYAxisId(m)}
+                dataKey={chartDataKey(m)} name={m.name} fill={m.color} radius={[0,6,6,0]} stroke="#64748b" strokeWidth={strokeWidth}>
+                {showLabels && <LabelList dataKey={chartDataKey(m)} position="right"
+                  formatter={(v: any) => m.isPercent ? `${Number(v).toFixed(1)}%` : fmtShort(v)}
+                  style={{ fontSize: 11, fill: m.color }} />}
               </Bar>
             ))}
           </BarChart>
         )}
       </ResponsiveContainer>
-      {/* Кнопка скачивания под графиком справа */}
       <div className="flex justify-end mt-3">
         <DownloadBtn onClick={handleDownload} title={`Скачать «${title}»`} />
       </div>
@@ -313,7 +344,7 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
   )
 }
 
-// ─── SortTh Component ────────────────────────────────────────────
+// ─── SortTh ──────────────────────────────────────────────────────
 function SortTh({ col, label, sortBy, sortDir, onSort }: { col: string; label: string; sortBy: string; sortDir: 'asc'|'desc'; onSort: (col: string) => void }) {
   return (
     <th onClick={() => onSort(col)}
@@ -323,10 +354,8 @@ function SortTh({ col, label, sortBy, sortDir, onSort }: { col: string; label: s
   )
 }
 
-// ─── Дропдаун магазинов ───────────────────────────────────────────
-function StoreDropdown({ stores, selected, onChange }: {
-  stores: string[]; selected: string[]; onChange: (s: string[]) => void
-}) {
+// ─── StoreDropdown ────────────────────────────────────────────────
+function StoreDropdown({ stores, selected, onChange }: { stores: string[]; selected: string[]; onChange: (s: string[]) => void }) {
   const [open, setOpen] = useState(false)
   const ref = React.useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -345,14 +374,12 @@ function StoreDropdown({ stores, selected, onChange }: {
       </button>
       {open && (
         <div className="absolute z-50 mt-1 w-full min-w-[200px] bg-gray-800 border border-gray-600 rounded-xl shadow-2xl p-2 space-y-0.5 max-h-64 overflow-y-auto">
-          <button onClick={() => onChange([])}
-            className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:bg-gray-700 transition">
+          <button onClick={() => onChange([])} className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:bg-gray-700 transition">
             Снять все
           </button>
           {stores.map(s => (
             <label key={s} className="flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-gray-700 transition text-sm text-gray-200">
-              <input type="checkbox" className="accent-blue-500" checked={selected.includes(s)}
-                onChange={() => toggle(s)} />
+              <input type="checkbox" className="accent-blue-500" checked={selected.includes(s)} onChange={() => toggle(s)} />
               {s}
             </label>
           ))}
@@ -362,34 +389,25 @@ function StoreDropdown({ stores, selected, onChange }: {
   )
 }
 
-// ─── Заготовленные значения для диапазонов ────────────────────────
+// ─── RangeDropdown ────────────────────────────────────────────────
 const RANGE_PRESETS: Record<string, { label: string; value: string }[]> = {
   MDL: [
-    { label: '10,000', value: '10000' },
-    { label: '50,000', value: '50000' },
-    { label: '100,000', value: '100000' },
-    { label: '250,000', value: '250000' },
-    { label: '500,000', value: '500000' },
-    { label: '1,000,000', value: '1000000' },
+    { label: '10,000', value: '10000' }, { label: '50,000', value: '50000' },
+    { label: '100,000', value: '100000' }, { label: '250,000', value: '250000' },
+    { label: '500,000', value: '500000' }, { label: '1,000,000', value: '1000000' },
   ],
   '%': [
-    { label: '5%', value: '5' },
-    { label: '10%', value: '10' },
-    { label: '15%', value: '15' },
-    { label: '20%', value: '20' },
-    { label: '30%', value: '30' },
-    { label: '50%', value: '50' },
+    { label: '5%', value: '5' }, { label: '10%', value: '10' },
+    { label: '15%', value: '15' }, { label: '20%', value: '20' },
+    { label: '30%', value: '30' }, { label: '50%', value: '50' },
   ],
   '': [
-    { label: '100', value: '100' },
-    { label: '500', value: '500' },
-    { label: '1,000', value: '1000' },
-    { label: '5,000', value: '5000' },
+    { label: '100', value: '100' }, { label: '500', value: '500' },
+    { label: '1,000', value: '1000' }, { label: '5,000', value: '5000' },
     { label: '10,000', value: '10000' },
   ],
 }
 
-// ─── Дропдаун диапазона ───────────────────────────────────────────
 function RangeDropdown({ label, unit, min, setMin, max, setMax, onApply }: {
   label: string; unit: string
   min: string; setMin: (v: string) => void
@@ -399,25 +417,20 @@ function RangeDropdown({ label, unit, min, setMin, max, setMax, onApply }: {
   const [open, setOpen] = useState(false)
   const [focusedField, setFocusedField] = useState<'min' | 'max' | null>(null)
   const ref = React.useRef<HTMLDivElement>(null)
-
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setFocusedField(null) } }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
-
   const isActive = min !== '' || max !== ''
   const presets = RANGE_PRESETS[unit] ?? RANGE_PRESETS['']
-
   const applyPreset = (value: string) => {
     if (focusedField === 'min') { setMin(value); onApply() }
     else if (focusedField === 'max') { setMax(value); onApply() }
   }
-
   const displayLabel = isActive
-    ? `${label}: ${min ? (unit === 'MDL' ? Number(min).toLocaleString() : min + (unit ? unit : '')) : '—'} → ${max ? (unit === 'MDL' ? Number(max).toLocaleString() : max + (unit ? unit : '')) : '—'}`
+    ? `${label}: ${min ? (unit === 'MDL' ? Number(min).toLocaleString() : min + (unit || '')) : '—'} → ${max ? (unit === 'MDL' ? Number(max).toLocaleString() : max + (unit || '')) : '—'}`
     : label
-
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(v => !v)}
@@ -426,12 +439,9 @@ function RangeDropdown({ label, unit, min, setMin, max, setMax, onApply }: {
         <span className="truncate">{displayLabel}</span>
         <span className="text-gray-400 ml-1 shrink-0">{open ? '▲' : '▼'}</span>
       </button>
-
       {open && (
         <div className="absolute z-50 mt-1 left-0 w-64 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl p-4 space-y-3">
           <p className="text-xs text-gray-400 font-medium">{label}{unit ? ` (${unit})` : ''}</p>
-
-          {/* Поля ввода */}
           <div className="space-y-2">
             <div className="relative">
               <input type="number" placeholder="От" value={min}
@@ -450,27 +460,23 @@ function RangeDropdown({ label, unit, min, setMin, max, setMax, onApply }: {
               {unit && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">{unit}</span>}
             </div>
           </div>
-
-          {/* Заготовленные значения */}
           <div>
             <p className="text-xs text-gray-500 mb-1.5">
               {focusedField ? `Быстрый выбор → ${focusedField === 'min' ? 'От' : 'До'}` : 'Выберите поле выше'}
             </p>
             <div className="flex flex-wrap gap-1">
               {presets.map(p => (
-                <button key={p.value} onClick={() => applyPreset(p.value)}
-                  disabled={!focusedField}
+                <button key={p.value} onClick={() => applyPreset(p.value)} disabled={!focusedField}
                   className={`px-2 py-1 rounded text-xs transition
                     ${!focusedField ? 'bg-gray-700/50 text-gray-600 cursor-not-allowed' :
                       (focusedField === 'min' ? min === p.value : max === p.value)
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-700 hover:bg-blue-600/40 text-gray-300 hover:text-white'}`}>
-                  {p.label}{unit === '%' ? '' : ''}
+                  {p.label}
                 </button>
               ))}
             </div>
           </div>
-
           {isActive && (
             <button onClick={() => { setMin(''); setMax(''); onApply(); setOpen(false); setFocusedField(null) }}
               className="w-full text-xs text-red-400 hover:text-red-300 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 transition">
@@ -505,28 +511,26 @@ export default function Dashboard() {
   const [hasMappings, setHasMappings] = useState(true)
   const [extraFields, setExtraFields] = useState<{ key: string; name: string; color: string }[]>([])
 
-  // ── Фильтры таблицы ──
-  const [filterYears,   setFilterYears]   = useState<number[]>([])
-  const [filterMonths,  setFilterMonths]  = useState<number[]>([])
-  const [filterStores,  setFilterStores]  = useState<string[]>([])
-  const [filterSearch,  setFilterSearch]  = useState('')
-  const [filterRevenueMin,     setFilterRevenueMin]     = useState('')
-  const [filterRevenueMax,     setFilterRevenueMax]     = useState('')
-  const [filterGrossMin,       setFilterGrossMin]       = useState('')
-  const [filterGrossMax,       setFilterGrossMax]       = useState('')
-  const [filterMarginMin,      setFilterMarginMin]      = useState('')
-  const [filterMarginMax,      setFilterMarginMax]      = useState('')
-  const [filterAvgCheckMin,    setFilterAvgCheckMin]    = useState('')
-  const [filterAvgCheckMax,    setFilterAvgCheckMax]    = useState('')
-  const [filterChecksMin,      setFilterChecksMin]      = useState('')
-  const [filterChecksMax,      setFilterChecksMax]      = useState('')
-  const [filterQuantityMin,    setFilterQuantityMin]    = useState('')
-  const [filterQuantityMax,    setFilterQuantityMax]    = useState('')
+  const [filterYears,      setFilterYears]      = useState<number[]>([])
+  const [filterMonths,     setFilterMonths]     = useState<number[]>([])
+  const [filterStores,     setFilterStores]     = useState<string[]>([])
+  const [filterSearch,     setFilterSearch]     = useState('')
+  const [filterRevenueMin, setFilterRevenueMin] = useState('')
+  const [filterRevenueMax, setFilterRevenueMax] = useState('')
+  const [filterGrossMin,   setFilterGrossMin]   = useState('')
+  const [filterGrossMax,   setFilterGrossMax]   = useState('')
+  const [filterMarginMin,  setFilterMarginMin]  = useState('')
+  const [filterMarginMax,  setFilterMarginMax]  = useState('')
+  const [filterAvgCheckMin,setFilterAvgCheckMin]= useState('')
+  const [filterAvgCheckMax,setFilterAvgCheckMax]= useState('')
+  const [filterChecksMin,  setFilterChecksMin]  = useState('')
+  const [filterChecksMax,  setFilterChecksMax]  = useState('')
+  const [filterQuantityMin,setFilterQuantityMin]= useState('')
+  const [filterQuantityMax,setFilterQuantityMax]= useState('')
   const [sortBy,  setSortBy]  = useState('year')
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
   const [filtersOpen, setFiltersOpen] = useState(false)
 
-  // Видимые колонки — все по умолчанию
   const ALL_COLUMNS = [
     { key: 'year',        label: 'Год' },
     { key: 'month',       label: 'Месяц' },
@@ -538,37 +542,30 @@ export default function Dashboard() {
     { key: 'quantity',    label: 'Кол-во продаж' },
     { key: 'checks',      label: 'Чеки' },
   ]
-  // Определяем какие колонки подсветить/показать на основе активных фильтров диапазонов
   const activeRangeFilters = new Set<string>()
-  if (filterRevenueMin || filterRevenueMax)     { activeRangeFilters.add('revenue') }
-  if (filterGrossMin   || filterGrossMax)       { activeRangeFilters.add('grossProfit') }
-  if (filterMarginMin  || filterMarginMax)      { activeRangeFilters.add('margin') }
-  if (filterAvgCheckMin|| filterAvgCheckMax)    { activeRangeFilters.add('avgCheck') }
-  if (filterChecksMin  || filterChecksMax)      { activeRangeFilters.add('checks') }
-  if (filterQuantityMin|| filterQuantityMax)    { activeRangeFilters.add('quantity') }
-  // Если выбраны фильтры диапазонов — показываем только год/месяц/магазин + отфильтрованные колонки
-  // Если фильтров нет — показываем все
+  if (filterRevenueMin  || filterRevenueMax)  activeRangeFilters.add('revenue')
+  if (filterGrossMin    || filterGrossMax)    activeRangeFilters.add('grossProfit')
+  if (filterMarginMin   || filterMarginMax)   activeRangeFilters.add('margin')
+  if (filterAvgCheckMin || filterAvgCheckMax) activeRangeFilters.add('avgCheck')
+  if (filterChecksMin   || filterChecksMax)   activeRangeFilters.add('checks')
+  if (filterQuantityMin || filterQuantityMax) activeRangeFilters.add('quantity')
   const visibleColumns = activeRangeFilters.size > 0
     ? ALL_COLUMNS.filter(c => ['year','month','store'].includes(c.key) || activeRangeFilters.has(c.key))
     : ALL_COLUMNS
 
   const resetFilters = () => {
     setFilterYears([]); setFilterMonths([]); setFilterStores([]); setFilterSearch('')
-    setFilterRevenueMin(''); setFilterRevenueMax('')
-    setFilterGrossMin(''); setFilterGrossMax('')
-    setFilterMarginMin(''); setFilterMarginMax('')
-    setFilterAvgCheckMin(''); setFilterAvgCheckMax('')
-    setFilterChecksMin(''); setFilterChecksMax('')
-    setFilterQuantityMin(''); setFilterQuantityMax('')
+    setFilterRevenueMin(''); setFilterRevenueMax(''); setFilterGrossMin(''); setFilterGrossMax('')
+    setFilterMarginMin(''); setFilterMarginMax(''); setFilterAvgCheckMin(''); setFilterAvgCheckMax('')
+    setFilterChecksMin(''); setFilterChecksMax(''); setFilterQuantityMin(''); setFilterQuantityMax('')
     setPage(1)
   }
 
   const activeFilterCount = [
-    filterYears.length, filterMonths.length, filterStores.length,
-    filterSearch, filterRevenueMin, filterRevenueMax,
-    filterGrossMin, filterGrossMax, filterMarginMin, filterMarginMax,
-    filterAvgCheckMin, filterAvgCheckMax, filterChecksMin, filterChecksMax,
-    filterQuantityMin, filterQuantityMax
+    filterYears.length, filterMonths.length, filterStores.length, filterSearch,
+    filterRevenueMin, filterRevenueMax, filterGrossMin, filterGrossMax,
+    filterMarginMin, filterMarginMax, filterAvgCheckMin, filterAvgCheckMax,
+    filterChecksMin, filterChecksMax, filterQuantityMin, filterQuantityMax
   ].filter(Boolean).length
 
   const fetchAll = useCallback(async () => {
@@ -612,8 +609,7 @@ export default function Dashboard() {
       if (filterQuantityMin)     params.quantityMin    = filterQuantityMin
       if (filterQuantityMax)     params.quantityMax    = filterQuantityMax
       const res = await axios.get(`${API}/sales/table`, { params })
-      setTable(res.data.data)
-      setTotal(res.data.total)
+      setTable(res.data.data); setTotal(res.data.total)
     } catch { console.error('table error') }
   }, [page, sortBy, sortDir, filterSearch, filterYears, filterMonths, filterStores,
       filterRevenueMin, filterRevenueMax, filterGrossMin, filterGrossMax,
@@ -641,42 +637,35 @@ export default function Dashboard() {
 
   const yearLabel = selectedYear ? `_${selectedYear}` : ''
 
-  const downloadOverview = () => {
-    xlsxDownloadMulti([
-      { name: 'Выручка',         rows: trendWithCalc.map(r => ({ Период: r.label, 'Выручка (MDL)': r.revenue })) },
-      { name: 'Кол-во продаж',   rows: trendWithCalc.map(r => ({ Период: r.label, 'Кол-во продаж': r.quantity })) },
-      { name: 'Кол-во чеков',    rows: trendWithCalc.map(r => ({ Период: r.label, 'Кол-во чеков': r.checks })) },
-      { name: 'Средний чек',     rows: trendWithCalc.map(r => ({ Период: r.label, 'Средний чек (MDL)': r.avgCheck })) },
-      { name: 'Вал. прибыль и маржа', rows: trendWithCalc.map(r => ({ Период: r.label, 'Вал. прибыль (MDL)': r.grossProfit, 'Маржа (%)': r.margin })) },
-      { name: 'По годам',        rows: yearTrend.map(r => ({ Год: r.year, 'Выручка (MDL)': r.revenue, 'Вал. прибыль (MDL)': r.grossProfit, 'Кол-во': r.quantity })) },
-      ...(extraFields.length > 0 ? [{ name: 'Остальное', rows: trendWithCalc.map(r => { const obj: any = { Период: r.label }; extraFields.forEach(f => { obj[f.name] = r[f.key] ?? 0 }); return obj }) }] : [])
-    ], `Дашборд_Тренды${yearLabel}`)
-  }
+  const downloadOverview = () => xlsxDownloadMulti([
+    { name: 'Выручка',              rows: trendWithCalc.map(r => ({ Период: r.label, 'Выручка (MDL)': r.revenue })) },
+    { name: 'Кол-во продаж',        rows: trendWithCalc.map(r => ({ Период: r.label, 'Кол-во продаж': r.quantity })) },
+    { name: 'Кол-во чеков',         rows: trendWithCalc.map(r => ({ Период: r.label, 'Кол-во чеков': r.checks })) },
+    { name: 'Средний чек',          rows: trendWithCalc.map(r => ({ Период: r.label, 'Средний чек (MDL)': r.avgCheck })) },
+    { name: 'Вал. прибыль и маржа', rows: trendWithCalc.map(r => ({ Период: r.label, 'Вал. прибыль (MDL)': r.grossProfit, 'Маржа (%)': r.margin })) },
+    { name: 'По годам',             rows: yearTrend.map(r => ({ Год: r.year, 'Выручка (MDL)': r.revenue, 'Вал. прибыль (MDL)': r.grossProfit, 'Кол-во': r.quantity })) },
+    ...(extraFields.length > 0 ? [{ name: 'Остальное', rows: trendWithCalc.map(r => { const obj: any = { Период: r.label }; extraFields.forEach(f => { obj[f.name] = r[f.key] ?? 0 }); return obj }) }] : [])
+  ], `Дашборд_Тренды${yearLabel}`)
 
-  const downloadBreakdown = () => {
-    xlsxDownloadMulti([
-      { name: 'Доля выручки по магазинам', rows: byStore.map(r => ({ Магазин: r.store, 'Выручка (MDL)': r.revenue })) },
-      { name: 'Топ магазинов', rows: [...byStore].sort((a,b) => b.revenue - a.revenue).map((r, i) => ({ '#': i + 1, Магазин: r.store, 'Выручка (MDL)': r.revenue })) }
-    ], `Дашборд_Разбивка${yearLabel}`)
-  }
+  const downloadBreakdown = () => xlsxDownloadMulti([
+    { name: 'Доля выручки по магазинам', rows: byStore.map(r => ({ Магазин: r.store, 'Выручка (MDL)': r.revenue })) },
+    { name: 'Топ магазинов', rows: [...byStore].sort((a,b) => b.revenue - a.revenue).map((r, i) => ({ '#': i+1, Магазин: r.store, 'Выручка (MDL)': r.revenue })) }
+  ], `Дашборд_Разбивка${yearLabel}`)
 
-  const downloadTable = () => {
-    xlsxDownload(
-      table.map(row => {
-        const margin = row.revenue > 0 ? parseFloat(((row.grossProfit / row.revenue) * 100).toFixed(2)) : 0
-        const avgCheck = row.checks > 0 ? Math.round(row.revenue / row.checks) : 0
-        const obj: any = {
-          Год: row.year, Месяц: MONTHS_FULL[row.month - 1], Магазин: row.store,
-          'Выручка (MDL)': row.revenue, 'Вал. прибыль (MDL)': row.grossProfit ?? 0,
-          'Маржа (%)': margin, 'Ср. чек (MDL)': avgCheck,
-          'Кол-во продаж': row.quantity ?? 0, 'Чеки': row.checks ?? 0,
-        }
-        extraFields.forEach(f => { obj[f.name] = row.extraData?.[f.key] ?? row[f.key] ?? '' })
-        return obj
-      }),
-      `Дашборд_Таблица${yearLabel}`, 'Данные'
-    )
-  }
+  const downloadTable = () => xlsxDownload(
+    table.map(row => {
+      const margin = row.revenue > 0 ? parseFloat(((row.grossProfit / row.revenue) * 100).toFixed(2)) : 0
+      const avgCheck = row.checks > 0 ? Math.round(row.revenue / row.checks) : 0
+      const obj: any = {
+        Год: row.year, Месяц: MONTHS_FULL[row.month - 1], Магазин: row.store,
+        'Выручка (MDL)': row.revenue, 'Вал. прибыль (MDL)': row.grossProfit ?? 0,
+        'Маржа (%)': margin, 'Ср. чек (MDL)': avgCheck,
+        'Кол-во продаж': row.quantity ?? 0, 'Чеки': row.checks ?? 0,
+      }
+      extraFields.forEach(f => { obj[f.name] = row.extraData?.[f.key] ?? row[f.key] ?? '' })
+      return obj
+    }), `Дашборд_Таблица${yearLabel}`, 'Данные'
+  )
 
   const kpiCards = kpi ? [
     { label: 'Выручка',       value: fmt(kpi.totalRevenue ?? 0),       color: 'text-blue-400' },
@@ -742,7 +731,6 @@ export default function Dashboard() {
             ))}
           </div>
           <button onClick={() => tabDownloadMap[activeTab]?.()}
-            title="Скачать все данные этой страницы"
             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800 hover:bg-green-700 text-gray-400 hover:text-white transition text-sm border border-gray-700">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
@@ -762,17 +750,20 @@ export default function Dashboard() {
               <SingleMetricChart title="Кол-во чеков" data={trendWithCalc} dataKey="checks" xKey="label" color="#06b6d4" formatTooltip={v => v.toLocaleString()} filename={`Кол-во_чеков${yearLabel}`} />
               <SingleMetricChart title="Средний чек" data={trendWithCalc} dataKey="avgCheck" xKey="label" color="#f59e0b" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Средний_чек${yearLabel}`} />
             </div>
-            <MultiMetricChart title="Вал. прибыль и маржа" data={trendWithCalc} xKey="label"
-              dualAxis
+            <MultiMetricChart title="Вал. прибыль и маржа" data={trendWithCalc} xKey="label" dualAxis
               metrics={[
                 { key: 'grossProfit', name: 'Вал. прибыль', color: '#10b981', isPercent: false },
                 { key: 'margin',      name: 'Маржа (%)',     color: '#ec4899', isPercent: true },
               ]}
               filename={`Валовая_прибыль_и_маржа${yearLabel}`} />
             <MultiMetricChart title="Остальное" data={trendWithCalc} xKey="label" metrics={extraFields}
-              emptyMessage="Здесь будут отображаться дополнительные поля добавленные через Google Sheets или маппинг" filename={`Остальное${yearLabel}`} />
-            <MultiMetricChart title="По годам" data={yearTrend} xKey="year"
-              metrics={[{ key: 'revenue', name: 'Выручка', color: '#3b82f6' }, { key: 'grossProfit', name: 'Вал. прибыль', color: '#10b981' }, { key: 'quantity', name: 'Кол-во', color: '#8b5cf6' }]}
+              emptyMessage="Здесь будут отображаться дополнительные поля добавленные через Google Sheets или маппинг"
+              filename={`Остальное${yearLabel}`} />
+            <MultiMetricChart title="По годам" data={yearTrend} xKey="year" dualAxis
+              metrics={[
+                { key: 'revenue',     name: 'Выручка',      color: '#3b82f6' },
+                { key: 'grossProfit', name: 'Вал. прибыль', color: '#10b981', isSecondary: true },
+              ]}
               filename="По_годам" />
           </div>
         )}
@@ -783,12 +774,10 @@ export default function Dashboard() {
             <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
               <div className="flex justify-between items-center mb-5">
                 <h3 className="font-semibold text-lg">Доля выручки по магазинам</h3>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
-                    <input type="checkbox" checked={showStorePieLabels} onChange={() => setShowStorePieLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
-                    Значения
-                  </label>
-                </div>
+                <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                  <input type="checkbox" checked={showStorePieLabels} onChange={() => setShowStorePieLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
+                  Значения
+                </label>
               </div>
               <ResponsiveContainer width="100%" height={320}>
                 <PieChart>
@@ -811,34 +800,24 @@ export default function Dashboard() {
         {/* Таблица */}
         {activeTab === 'table' && (
           <div className="space-y-4">
-
-            {/* Панель фильтров */}
             <div className="bg-gray-800 rounded-xl border border-gray-700">
               <button onClick={() => setFiltersOpen(v => !v)}
                 className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium hover:bg-gray-700/50 transition rounded-xl">
                 <div className="flex items-center gap-3">
-                  <span>Фильтры</span>
-                  {activeFilterCount > 0 && (
-                    <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">{activeFilterCount}</span>
-                  )}
+                  <span>🔍 Фильтры</span>
+                  {activeFilterCount > 0 && <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">{activeFilterCount}</span>}
                 </div>
                 <span className="text-gray-400">{filtersOpen ? '▲' : '▼'}</span>
               </button>
-
               {filtersOpen && (
                 <div className="px-5 pb-5 border-t border-gray-700 pt-4 space-y-5">
-
-                  {/* Поиск */}
                   <div>
                     <label className="text-xs text-gray-400 mb-1 block">Поиск по магазину</label>
-                    <input type="text" placeholder="Введите название..."
-                      value={filterSearch} onChange={e => { setFilterSearch(e.target.value); setPage(1) }}
+                    <input type="text" placeholder="Введите название..." value={filterSearch}
+                      onChange={e => { setFilterSearch(e.target.value); setPage(1) }}
                       className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-                    {/* Годы */}
                     <div>
                       <label className="text-xs text-gray-400 mb-2 block">Год</label>
                       <div className="flex flex-wrap gap-1">
@@ -850,8 +829,6 @@ export default function Dashboard() {
                         ))}
                       </div>
                     </div>
-
-                    {/* Месяцы */}
                     <div>
                       <label className="text-xs text-gray-400 mb-2 block">Месяц</label>
                       <div className="grid grid-cols-4 gap-1">
@@ -863,35 +840,25 @@ export default function Dashboard() {
                         ))}
                       </div>
                     </div>
-
-                    {/* Магазины — дропдаун */}
                     <div className="relative">
                       <label className="text-xs text-gray-400 mb-2 block">Магазин</label>
-                      <StoreDropdown
-                        stores={allStores}
-                        selected={filterStores}
-                        onChange={(s) => { setFilterStores(s); setPage(1) }}
-                      />
+                      <StoreDropdown stores={allStores} selected={filterStores} onChange={s => { setFilterStores(s); setPage(1) }} />
                     </div>
                   </div>
-
-                  {/* Числовые диапазоны — дропдауны */}
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
                     {[
-                      { label: 'Выручка', unit: 'MDL', min: filterRevenueMin, setMin: setFilterRevenueMin, max: filterRevenueMax, setMax: setFilterRevenueMax },
-                      { label: 'Вал. прибыль', unit: 'MDL', min: filterGrossMin, setMin: setFilterGrossMin, max: filterGrossMax, setMax: setFilterGrossMax },
-                      { label: 'Маржа', unit: '%', min: filterMarginMin, setMin: setFilterMarginMin, max: filterMarginMax, setMax: setFilterMarginMax },
-                      { label: 'Ср. чек', unit: 'MDL', min: filterAvgCheckMin, setMin: setFilterAvgCheckMin, max: filterAvgCheckMax, setMax: setFilterAvgCheckMax },
-                      { label: 'Чеки', unit: '', min: filterChecksMin, setMin: setFilterChecksMin, max: filterChecksMax, setMax: setFilterChecksMax },
-                      { label: 'Кол-во продаж', unit: '', min: filterQuantityMin, setMin: setFilterQuantityMin, max: filterQuantityMax, setMax: setFilterQuantityMax },
+                      { label: 'Выручка',       unit: 'MDL', min: filterRevenueMin,  setMin: setFilterRevenueMin,  max: filterRevenueMax,  setMax: setFilterRevenueMax },
+                      { label: 'Вал. прибыль',  unit: 'MDL', min: filterGrossMin,    setMin: setFilterGrossMin,    max: filterGrossMax,    setMax: setFilterGrossMax },
+                      { label: 'Маржа',         unit: '%',   min: filterMarginMin,   setMin: setFilterMarginMin,   max: filterMarginMax,   setMax: setFilterMarginMax },
+                      { label: 'Ср. чек',       unit: 'MDL', min: filterAvgCheckMin, setMin: setFilterAvgCheckMin, max: filterAvgCheckMax, setMax: setFilterAvgCheckMax },
+                      { label: 'Чеки',          unit: '',    min: filterChecksMin,   setMin: setFilterChecksMin,   max: filterChecksMax,   setMax: setFilterChecksMax },
+                      { label: 'Кол-во продаж', unit: '',    min: filterQuantityMin, setMin: setFilterQuantityMin, max: filterQuantityMax, setMax: setFilterQuantityMax },
                     ].map(f => (
                       <RangeDropdown key={f.label} label={f.label} unit={f.unit}
                         min={f.min} setMin={f.setMin} max={f.max} setMax={f.setMax}
                         onApply={() => setPage(1)} />
                     ))}
                   </div>
-
-                  {/* Сброс */}
                   {activeFilterCount > 0 && (
                     <div className="flex justify-end">
                       <button onClick={resetFilters}
@@ -904,7 +871,6 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Таблица */}
             <div className="bg-gray-800 rounded-xl border border-gray-700">
               <div className="p-3 border-b border-gray-700 flex justify-between items-center">
                 <span className="text-gray-400 text-sm">Найдено записей: <span className="text-white font-medium">{total}</span></span>
