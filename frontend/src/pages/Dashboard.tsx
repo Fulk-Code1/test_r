@@ -100,6 +100,10 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
     <LabelList dataKey={dataKey} position={chartType === 'bar-horizontal' ? 'right' : 'top'}
       formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: color }} />
   ) : null
+
+  const chartMargin = showLabels
+    ? chartType === 'bar-horizontal' ? { right: 60 } : { top: 24 }
+    : {}
   const xInterval = Math.floor(data.length / 10)
 
   return (
@@ -138,7 +142,7 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
               dot={showDots ? { stroke: color, strokeWidth: 2, r: 4 } : false}>{labelEl}</Line>
           </LineChart>
         ) : chartType === 'bar' ? (
-          <BarChart data={data}>
+          <BarChart data={data} margin={chartMargin}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
             <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
@@ -147,7 +151,7 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
             <Bar dataKey={dataKey} name={title} fill={color} radius={[5,5,0,0]}>{labelEl}</Bar>
           </BarChart>
         ) : (
-          <BarChart data={preparedData} layout="vertical" barSize={barSize} barCategoryGap={8}>
+          <BarChart data={preparedData} layout="vertical" barSize={barSize} barCategoryGap={8} margin={chartMargin}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
             <YAxis type="category" dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} width={80} interval={0} />
