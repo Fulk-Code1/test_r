@@ -518,6 +518,7 @@ export default function Dashboard() {
   const [years, setYears] = useState<number[]>([])
   const [allStores, setAllStores] = useState<string[]>([])
   const [selectedYear, setSelectedYear] = useState<string>('')
+  const [selectedStore, setSelectedStore] = useState<string>('')
   const [showStorePieLabels, setShowStorePieLabels] = useState(false)
   const [hasMappings, setHasMappings] = useState(true)
   const [extraFields, setExtraFields] = useState<{ key: string; name: string; color: string }[]>([])
@@ -586,12 +587,14 @@ export default function Dashboard() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const yParam = selectedYear ? `?year=${selectedYear}` : ''
+      const params: any = {}
+      if (selectedYear)  params.year  = selectedYear
+      if (selectedStore) params.store = selectedStore
       const [kpiR, trendR, storeR, yearR, yearsR, mappingR, storesR] = await Promise.all([
-        axios.get(`${API}/sales/kpi${yParam}`),
-        axios.get(`${API}/sales/trend${yParam}`),
-        axios.get(`${API}/sales/by-store${yParam}`),
-        axios.get(`${API}/sales/by-year`),
+        axios.get(`${API}/sales/kpi`,      { params }),
+        axios.get(`${API}/sales/trend`,    { params }),
+        axios.get(`${API}/sales/by-store`, { params }),
+        axios.get(`${API}/sales/by-year`,  { params }),
         axios.get(`${API}/sales/years`),
         axios.get(`${API}/mapping`),
         axios.get(`${API}/sales/stores`),
@@ -603,11 +606,12 @@ export default function Dashboard() {
       const dynamicKeys = Object.keys(sample).filter(k => !EXCLUDED_FROM_EXTRA.has(k))
       setExtraFields(dynamicKeys.map((k, i) => ({ key: k, name: k, color: COLORS[i % COLORS.length] })))
     } catch { console.error('fetch error') }
-  }, [selectedYear])
+  }, [selectedYear, selectedStore])
 
   const fetchTable = useCallback(async () => {
     try {
       const params: any = { page, limit: 15, sortBy, sortDir }
+      if (selectedStore)         params.stores         = selectedStore
       if (filterSearch)          params.search         = filterSearch
       if (filterYears.length)    params.years          = filterYears.join(',')
       if (filterMonths.length)   params.months         = filterMonths.join(',')
@@ -627,7 +631,7 @@ export default function Dashboard() {
       const res = await axios.get(`${API}/sales/table`, { params })
       setTable(res.data.data); setTotal(res.data.total)
     } catch { console.error('table error') }
-  }, [page, sortBy, sortDir, filterSearch, filterYears, filterMonths, filterStores,
+  }, [page, sortBy, sortDir, selectedStore, filterSearch, filterYears, filterMonths, filterStores,
       filterRevenueMin, filterRevenueMax, filterGrossMin, filterGrossMax,
       filterMarginMin, filterMarginMax, filterAvgCheckMin, filterAvgCheckMax,
       filterChecksMin, filterChecksMax, filterQuantityMin, filterQuantityMax])
@@ -705,6 +709,11 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-900 text-white">
       <Navbar active="dashboard" userRole={user?.role} rightSlot={
         <>
+          <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); setPage(1) }}
+            className={`text-white text-sm px-3 py-1.5 rounded-lg border transition ${selectedStore ? 'bg-blue-700 border-blue-500' : 'bg-gray-700 border-gray-600'}`}>
+            <option value="">Все магазины</option>
+            {allStores.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
           <select value={selectedYear} onChange={e => { setSelectedYear(e.target.value); setPage(1) }}
             className="bg-gray-700 text-white text-sm px-3 py-1.5 rounded-lg border border-gray-600">
             <option value="">Все годы</option>

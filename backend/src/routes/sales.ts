@@ -11,8 +11,10 @@ function calcMetrics(revenue: number, grossProfit: number, checks: number, quant
 }
 
 router.get('/kpi', async (req: Request, res: Response) => {
-  const { year } = req.query
-  const where = year ? { year: parseInt(year as string) } : {}
+  const { year, store } = req.query
+  const where: any = {}
+  if (year)  where.year  = parseInt(year as string)
+  if (store) where.store = store as string
   const [agg, storeCount] = await Promise.all([
     prisma.saleRecord.aggregate({
       where,
@@ -32,8 +34,12 @@ router.get('/kpi', async (req: Request, res: Response) => {
 })
 
 router.get('/by-year', async (req: Request, res: Response) => {
+  const { store } = req.query
+  const where: any = {}
+  if (store) where.store = store as string
   const data = await prisma.saleRecord.groupBy({
     by: ['year'],
+    where,
     _sum: { revenue: true, quantity: true, checks: true, grossProfit: true },
     orderBy: { year: 'asc' },
   })
@@ -47,8 +53,10 @@ router.get('/by-year', async (req: Request, res: Response) => {
 })
 
 router.get('/by-store', async (req: Request, res: Response) => {
-  const { year } = req.query
-  const where = year ? { year: parseInt(year as string) } : {}
+  const { year, store } = req.query
+  const where: any = {}
+  if (year)  where.year  = parseInt(year as string)
+  if (store) where.store = store as string
   const data = await prisma.saleRecord.groupBy({
     by: ['store'],
     where,
@@ -65,8 +73,10 @@ router.get('/by-store', async (req: Request, res: Response) => {
 })
 
 router.get('/trend', async (req: Request, res: Response) => {
-  const { year } = req.query
-  const where = year ? { year: parseInt(year as string) } : {}
+  const { year, store } = req.query
+  const where: any = {}
+  if (year)  where.year  = parseInt(year as string)
+  if (store) where.store = store as string
   const [data, storesByMonth] = await Promise.all([
     prisma.saleRecord.groupBy({
       by: ['year', 'month'],
