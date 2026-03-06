@@ -81,9 +81,9 @@ function ChartTypeSwitcher({ value, onChange }: { value: ChartType; onChange: (t
 }
 
 // ─── SingleMetricChart ────────────────────────────────────────────
-function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, filename }: {
+function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, filename, extraControls }: {
   title: string; data: any[]; dataKey: string; xKey: string; color: string
-  formatTooltip: (v: number) => string; filename: string
+  formatTooltip: (v: number) => string; filename: string; extraControls?: React.ReactNode
 }) {
   const [chartType, setChartType] = useState<ChartType>('line')
   const [showLabels, setShowLabels] = useState(false)
@@ -122,6 +122,7 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
               Точки
             </label>
           )}
+          {extraControls}
           {chartType === 'bar-horizontal' && data.length > 10 && (
             <button onClick={() => setShowAllHorizontal(!showAllHorizontal)}
               className="px-3 py-1.5 rounded text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 transition">
@@ -151,7 +152,7 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
             <Bar dataKey={dataKey} name={title} fill={color} radius={[5,5,0,0]}>{labelEl}</Bar>
           </BarChart>
         ) : (
-          <BarChart data={preparedData} layout="vertical" barSize={barSize} barCategoryGap={8} margin={chartMargin}>
+          <BarChart data={preparedData} layout="vertical" barSize={barSize} barCategoryGap={8}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
             <YAxis type="category" dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} width={80} interval={0} />
@@ -169,10 +170,10 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
 }
 
 // ─── MultiMetricChart ─────────────────────────────────────────────
-function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, dualAxis, normalize }: {
+function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, dualAxis, normalize, extraControls }: {
   title: string; data: any[]; xKey: string
   metrics: { key: string; name: string; color: string; isPercent?: boolean; isSecondary?: boolean }[]
-  emptyMessage?: string; filename: string; dualAxis?: boolean; normalize?: boolean
+  emptyMessage?: string; filename: string; dualAxis?: boolean; normalize?: boolean; extraControls?: React.ReactNode
 }) {
   const [chartType, setChartType] = useState<ChartType>('line')
   const [active, setActive] = useState<string[]>(metrics.map(m => m.key))
@@ -297,6 +298,7 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
               Точки
             </label>
           )}
+          {extraControls}
           {chartType === 'bar-horizontal' && data.length > 10 && (
             <button onClick={() => setShowAllHorizontal(!showAllHorizontal)}
               className="px-3 py-1.5 rounded text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 transition">
@@ -520,6 +522,7 @@ export default function Dashboard() {
   const [hasMappings, setHasMappings] = useState(true)
   const [extraFields, setExtraFields] = useState<{ key: string; name: string; color: string }[]>([])
 
+  const [normAvgCheck, setNormAvgCheck] = useState(false)
   const [flexChart, setFlexChart] = useState<{
     metrics: string[]; chartType: ChartType; showLabels: boolean; showDots: boolean; normalize: boolean; showAllHorizontal: boolean
   }>({ metrics: ['revenue'], chartType: 'line', showLabels: false, showDots: false, normalize: false, showAllHorizontal: false })
@@ -952,12 +955,19 @@ export default function Dashboard() {
               <SingleMetricChart title="Кол-во продаж (наполненность)" data={trendWithCalc} dataKey="quantity" xKey="label" color="#8b5cf6" formatTooltip={v => fmtNum(v)} filename={`Кол-во_продаж${yearLabel}`} />
             </div>
             <SingleMetricChart title="Кол-во чеков" data={trendWithCalc} dataKey="checks" xKey="label" color="#06b6d4" formatTooltip={v => fmtNum(v)} filename={`Кол-во_чеков${yearLabel}`} />
-            <MultiMetricChart title="Ср. чек / Ср. кол-во на магазин / Маржа" data={trendWithCalc} xKey="label" dualAxis
+            <MultiMetricChart title="Ср. чек / Ср. кол-во на магазин / Маржа" data={trendWithCalc} xKey="label"
+              dualAxis={!normAvgCheck} normalize={normAvgCheck}
               metrics={[
                 { key: 'avgCheck',            name: 'Ср. чек (MDL)',          color: '#f59e0b' },
                 { key: 'avgQuantityPerStore',  name: 'Ср. кол-во на магазин',  color: '#8b5cf6', isSecondary: true },
                 { key: 'margin',              name: 'Маржа (%)',               color: '#ec4899', isPercent: true, isSecondary: true },
               ]}
+              extraControls={
+                <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: normAvgCheck ? '#f59e0b' : '#9ca3af' }}>
+                  <input type="checkbox" checked={normAvgCheck} onChange={() => setNormAvgCheck(v => !v)} className="accent-amber-500 w-4 h-4" />
+                  Норм. шкала
+                </label>
+              }
               filename={`Ср_чек_кол-во_маржа${yearLabel}`} />
             <MultiMetricChart title="Вал. прибыль и маржа" data={trendWithCalc} xKey="label" dualAxis
               metrics={[
