@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine
 } from 'recharts'
 import * as XLSX from 'xlsx'
 import Navbar from '../components/Navbar'
@@ -532,8 +532,8 @@ export default function Dashboard() {
   const [storeTrendShowDots, setStoreTrendShowDots] = useState(false)
   const [storeTrendShowLabels, setStoreTrendShowLabels] = useState(false)
   const [flexChart, setFlexChart] = useState<{
-    metrics: string[]; chartType: ChartType; showLabels: boolean; showDots: boolean; normalize: boolean; showAllHorizontal: boolean; sortMode: 'chrono' | 'value'
-  }>({ metrics: ['revenue'], chartType: 'line', showLabels: false, showDots: false, normalize: false, showAllHorizontal: false, sortMode: 'chrono' })
+    metrics: string[]; chartType: ChartType; showLabels: boolean; showDots: boolean; normalize: boolean; showAllHorizontal: boolean; sortMode: 'chrono' | 'value'; compareMode: 'none' | 'mom'
+  }>({ metrics: ['revenue'], chartType: 'line', showLabels: false, showDots: false, normalize: false, showAllHorizontal: false, sortMode: 'chrono', compareMode: 'none' })
 
   const [filterYears,      setFilterYears]      = useState<number[]>([])
   const [filterMonths,     setFilterMonths]     = useState<number[]>([])
@@ -809,6 +809,29 @@ export default function Dashboard() {
                 ? [...trendWithCalc].sort((a, b) => (b[cfg.metrics[0]] ?? 0) - (a[cfg.metrics[0]] ?? 0))
                 : trendWithCalc
 
+              // Период к периоду — вычисляем изменения
+              const buildCompareData = () => {
+                const base = sortedData
+                return base.map((row, i) => {
+                  if (i === 0) return null // нет предыдущего периода
+                  const prev = base[i - 1]
+                  const obj: any = { label: row.label }
+                  FLEX_METRICS.forEach(m => {
+                    const cur = row[m.key] ?? 0
+                    const prv = prev[m.key] ?? 0
+                    obj[m.key + '_cur'] = cur
+                    obj[m.key + '_prev'] = prv
+                    obj[m.key + '_abs'] = cur - prv
+                    obj[m.key + '_pct'] = prv !== 0 ? parseFloat(((cur - prv) / Math.abs(prv) * 100).toFixed(1)) : 0
+                    obj[m.key] = cur - prv // для графика — абсолютное изменение
+                  })
+                  obj._prevLabel = prev.label
+                  return obj
+                }).filter(Boolean)
+              }
+
+              const compareData = cfg.compareMode !== 'none' ? buildCompareData() : []
+
               const normalizeData = (data: any[]) => {
                 if (!normalize) return data
                 return data.map(row => {
@@ -1058,12 +1081,69 @@ export default function Dashboard() {
                 return null
               }
 
+              const renderCompareChart = () => {
+                if (compareData.length === 0) return <p className="text-gray-500 text-center py-10">Нет данных для сравнения</p>
+                const xInterval = Math.floor(compareData.length / 10)
+                const compareTt = ({ active, payload, label }: any) => {
+                  if (!active || !payload?.length) return null
+                  const row = compareData.find(r => r.label === label)
+                  return (
+                    <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: '10px 14px' }}>
+                      <p style={{ color: '#fff', fontSize: 13, marginBottom: 2 }}>{label}</p>
+                      <p style={{ color: '#6b7280', fontSize: 11, marginBottom: 6 }}>vs {row?._prevLabel}</p>
+                      {payload.map((entry: any) => {
+                        const mKey = entry.dataKey
+                        const met = FLEX_METRICS.find(x => x.key === mKey)
+                        const cur = row?.[mKey + '_cur'] ?? 0
+                        const prv = row?.[mKey + '_prev'] ?? 0
+                        const abs = row?.[mKey + '_abs'] ?? 0
+                        const pct = row?.[mKey + '_pct'] ?? 0
+                        const fmtVal = (v: number) => met?.isPercent ? `${v.toFixed(1)} %` : met?.isSecondary ? fmtNum(v) : fmt(v)
+                        const sign = abs >= 0 ? '+' : ''
+                        return (
+                          <p key={mKey} style={{ color: entry.color, fontSize: 12, margin: '3px 0' }}>
+                            <strong>{met?.name}</strong>: {fmtVal(cur)}
+                            <span style={{ color: abs >= 0 ? '#10b981' : '#ef4444', marginLeft: 6 }}>
+                              {sign}{fmtVal(abs)} ({sign}{pct} %)
+                            </span>
+                            <span style={{ color: '#6b7280', fontSize: 11 }}> ← {fmtVal(prv)}</span>
+                          </p>
+                        )
+                      })}
+                    </div>
+                  )
+                }
+                return (
+                  <ResponsiveContainer width="100%" height={380}>
+                    <BarChart data={compareData} margin={{ top: showLabels ? 24 : 4, right: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
+                      <YAxis yAxisId="left" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+                      {activeMetrics.some(m => m.isSecondary || m.isPercent) && activeMetrics.some(m => !m.isSecondary && !m.isPercent) && (
+                        <YAxis yAxisId="right" orientation="right" stroke="#6b7280" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+                      )}
+                      <Tooltip content={compareTt} />
+                      <Legend wrapperStyle={{ fontSize: 13 }} />
+                      <ReferenceLine yAxisId="left" y={0} stroke="#6b7280" strokeWidth={1.5} />
+                      {activeMetrics.map(m => (
+                        <Bar key={m.key} yAxisId={getAxis(m)} dataKey={m.key} name={m.name} fill={m.color} radius={[4,4,0,0]}>
+                          <Cell fill={m.color} />
+                          {showLabels && <LabelList dataKey={m.key} position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+                        </Bar>
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                )
+              }
+
               return (
                 <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold text-lg mr-2">Аналитика</h3>
-                      <ChartTypeSwitcher value={cfg.chartType} onChange={v => updateCfg({ chartType: v })} />
+                      {cfg.compareMode === 'none' && (
+                        <ChartTypeSwitcher value={cfg.chartType} onChange={v => updateCfg({ chartType: v })} />
+                      )}
                       <span className="text-gray-600 text-xs mx-1">|</span>
                       {FLEX_METRICS.map(m => (
                         <button key={m.key}
@@ -1096,7 +1176,7 @@ export default function Dashboard() {
                         <input type="checkbox" checked={normalize} onChange={() => updateCfg({ normalize: !normalize })} className="accent-amber-500 w-4 h-4" />
                         Норм. шкала
                       </label>
-                      {cfg.chartType !== 'line' && (
+                      {cfg.compareMode === 'none' && (
                         <div className="flex rounded-lg overflow-hidden border border-gray-600">
                           {(['chrono', 'value'] as const).map(mode => (
                             <button key={mode} onClick={() => updateCfg({ sortMode: mode })}
@@ -1106,17 +1186,38 @@ export default function Dashboard() {
                           ))}
                         </div>
                       )}
+                      <span className="text-gray-600 text-xs mx-1">|</span>
+                      <div className="flex rounded-lg overflow-hidden border border-gray-600">
+                        {([
+                          { id: 'none', label: 'Обычный' },
+                          { id: 'mom',  label: 'Месяц к месяцу' },
+                        ] as const).map(m => (
+                          <button key={m.id} onClick={() => updateCfg({ compareMode: m.id })}
+                            className={`px-3 py-1.5 text-xs transition ${cfg.compareMode === m.id ? 'bg-violet-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     <DownloadBtn onClick={() => {
-                      const rows = sortedData.map(r => {
+                      const rows = (cfg.compareMode !== 'none' ? compareData : sortedData).map(r => {
                         const obj: any = { Период: r.label }
-                        activeMetrics.forEach(m => { obj[m.name] = r[m.key] ?? 0 })
+                        activeMetrics.forEach(m => {
+                          if (cfg.compareMode !== 'none') {
+                            obj[m.name + ' (тек.)'] = r[m.key + '_cur'] ?? 0
+                            obj[m.name + ' (пред.)'] = r[m.key + '_prev'] ?? 0
+                            obj[m.name + ' (изм.)'] = r[m.key + '_abs'] ?? 0
+                            obj[m.name + ' (изм. %)'] = r[m.key + '_pct'] ?? 0
+                          } else {
+                            obj[m.name] = r[m.key] ?? 0
+                          }
+                        })
                         return obj
                       })
                       xlsxDownload(rows, `Аналитика${yearLabel}`, 'Аналитика')
                     }} title="Скачать график" />
                   </div>
-                  {renderFlexChart()}
+                  {cfg.compareMode !== 'none' ? renderCompareChart() : renderFlexChart()}
                 </div>
               )
             })()}
