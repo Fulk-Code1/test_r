@@ -1247,10 +1247,10 @@ export default function Dashboard() {
                 { key: 'margin',      name: 'Маржа (%)',     color: '#ec4899', isPercent: true },
               ]}
               filename={`Валовая_прибыль_и_маржа${yearLabel}`} />
-            <MultiMetricChart title="По годам" data={yearTrend} xKey="year" dualAxis
+            <MultiMetricChart title="По годам" data={yearTrend} xKey="year"
               metrics={[
-                { key: 'revenue',     name: 'Выручка',      color: '#3b82f6' },
-                { key: 'grossProfit', name: 'Вал. прибыль', color: '#10b981', isSecondary: true },
+                { key: 'revenue',     name: 'Выручка (MDL)',      color: '#3b82f6' },
+                { key: 'grossProfit', name: 'Вал. прибыль (MDL)', color: '#10b981' },
               ]}
               filename="По_годам" />
             <MultiMetricChart title="Остальное" data={trendWithCalc} xKey="label" metrics={extraFields}
