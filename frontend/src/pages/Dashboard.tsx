@@ -14,6 +14,16 @@ const MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','
 const MONTHS_FULL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']
 const EXCLUDED_FROM_EXTRA = new Set(['revenue', 'quantity', 'checks', 'avgCheck', 'grossProfit', 'margin', 'label', 'year', 'month', 'storeCount', 'avgQuantityPerStore'])
 
+// ─── Flex chart metrics ──────────────────────────────────────────
+const FLEX_METRICS = [
+  { key: 'revenue',            name: 'Выручка',              color: '#3b82f6', isPercent: false },
+  { key: 'grossProfit',        name: 'Вал. прибыль',         color: '#10b981', isPercent: false },
+  { key: 'quantity',           name: 'Кол-во продаж',        color: '#8b5cf6', isPercent: false, isSecondary: true },
+  { key: 'checks',             name: 'Кол-во чеков',         color: '#06b6d4', isPercent: false, isSecondary: true },
+  { key: 'margin',             name: 'Маржа (%)',             color: '#ec4899', isPercent: true  },
+  { key: 'avgCheck',           name: 'Ср. чек',              color: '#f59e0b', isPercent: false },
+]
+
 // ─── Excel helpers ───────────────────────────────────────────────
 function xlsxDownload(rows: Record<string, any>[], filename: string, sheetName = 'Данные') {
   if (!rows?.length) return
@@ -506,6 +516,10 @@ export default function Dashboard() {
   const [hasMappings, setHasMappings] = useState(true)
   const [extraFields, setExtraFields] = useState<{ key: string; name: string; color: string }[]>([])
 
+  const [flexChart, setFlexChart] = useState<{
+    metrics: string[]; chartType: ChartType; showLabels: boolean; showDots: boolean; normalize: boolean
+  }>({ metrics: ['revenue'], chartType: 'line', showLabels: false, showDots: false, normalize: false })
+
   const [filterYears,      setFilterYears]      = useState<number[]>([])
   const [filterMonths,     setFilterMonths]     = useState<number[]>([])
   const [filterStores,     setFilterStores]     = useState<string[]>([])
@@ -738,6 +752,185 @@ export default function Dashboard() {
         {/* Тренды */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
+
+            {/* ─── Гибкий график (постоянный, вверху) ─── */}
+            {(() => {
+              const cfg = flexChart
+              const updateCfg = (patch: Partial<typeof cfg>) => setFlexChart(prev => ({ ...prev, ...patch }))
+              const showLabels = cfg.showLabels
+              const showDots   = cfg.showDots
+              const normalize  = cfg.normalize
+              const activeMetrics = FLEX_METRICS.filter(m => cfg.metrics.includes(m.key))
+
+              // Разбиваем метрики на группы по осям:
+              // Левая ось: MDL (revenue, grossProfit, avgCheck)
+              // Правая ось: штуки (quantity, checks) и % (margin)
+              const leftMetrics  = activeMetrics.filter(m => !m.isSecondary && !m.isPercent)
+              const rightMetrics = activeMetrics.filter(m => m.isSecondary || m.isPercent)
+              const hasDual = !normalize && leftMetrics.length > 0 && rightMetrics.length > 0
+
+              const normalizeData = (data: any[]) => {
+                if (!normalize) return data
+                return data.map(row => {
+                  const obj: any = { ...row }
+                  activeMetrics.forEach(m => {
+                    const vals = data.map(r => r[m.key] ?? 0)
+                    const max = Math.max(...vals)
+                    obj[`__norm_${m.key}`] = max > 0 ? ((row[m.key] ?? 0) / max) * 100 : 0
+                  })
+                  return obj
+                })
+              }
+              const normKey = (k: string) => normalize ? `__norm_${k}` : k
+              const getAxis = (m: typeof FLEX_METRICS[0]) => {
+                if (normalize) return 'left'
+                return (m.isSecondary || m.isPercent) ? 'right' : 'left'
+              }
+              const chartData = normalizeData(trendWithCalc)
+              const yFmt = normalize ? (v: any) => `${Number(v).toFixed(0)} %` : (v: any) => fmtShort(v)
+              const yFmtRight = (v: any) => {
+                const hasPercent = rightMetrics.some(m => m.isPercent)
+                const hasSecondary = rightMetrics.some(m => m.isSecondary)
+                if (hasPercent && !hasSecondary) return `${Number(v).toFixed(1)} %`
+                return fmtShort(v)
+              }
+              const xInterval = Math.floor(trendWithCalc.length / 10)
+
+              const tooltipContent = ({ active, payload, label }: any) => {
+                if (!active || !payload?.length) return null
+                return (
+                  <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: '10px 14px' }}>
+                    <p style={{ color: '#fff', fontSize: 13, marginBottom: 6 }}>{label}</p>
+                    {payload.map((entry: any) => {
+                      const rawKey = entry.dataKey?.replace('__norm_', '')
+                      const met = FLEX_METRICS.find(x => x.key === rawKey)
+                      const realVal = normalize ? entry.payload[rawKey] : entry.value
+                      const formatted = met?.isPercent
+                        ? `${Number(realVal).toFixed(1).replace('.', ',')} %`
+                        : met?.isSecondary
+                          ? fmtNum(Number(realVal))
+                          : fmt(Number(realVal))
+                      return (
+                        <p key={entry.dataKey} style={{ color: entry.color, fontSize: 13, margin: '2px 0' }}>
+                          {entry.name}: <strong>{formatted}</strong>
+                          {normalize && <span style={{ color: '#6b7280', fontSize: 11 }}> ({Number(entry.value).toFixed(0)} %)</span>}
+                        </p>
+                      )
+                    })}
+                  </div>
+                )
+              }
+
+              const axes = (
+                <>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
+                  <YAxis yAxisId="left" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+                  {hasDual && (
+                    <YAxis yAxisId="right" orientation="right" stroke="#6b7280" tick={{ fontSize: 12 }} tickFormatter={yFmtRight} />
+                  )}
+                  <Tooltip content={tooltipContent} />
+                  <Legend wrapperStyle={{ fontSize: 13 }} />
+                </>
+              )
+
+              const renderLines = () => activeMetrics.map(m => (
+                <Line key={m.key} yAxisId={getAxis(m)} type="monotone" dataKey={normKey(m.key)} name={m.name} stroke={m.color} strokeWidth={2.5}
+                  dot={showDots ? { stroke: m.color, strokeWidth: 2, r: 4 } : false}>
+                  {showLabels && <LabelList dataKey={normKey(m.key)} position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+                </Line>
+              ))
+
+              const renderBars = (position: 'top' | 'right' = 'top') => activeMetrics.map(m => (
+                <Bar key={m.key} yAxisId={getAxis(m)} dataKey={normKey(m.key)} name={m.name} fill={m.color} radius={position === 'top' ? [5,5,0,0] : [0,6,6,0]}>
+                  {showLabels && <LabelList dataKey={normKey(m.key)} position={position} formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+                </Bar>
+              ))
+
+              const renderFlexChart = () => {
+                if (cfg.chartType === 'line') return (
+                  <ResponsiveContainer width="100%" height={340}>
+                    <LineChart data={chartData}>{axes}{renderLines()}</LineChart>
+                  </ResponsiveContainer>
+                )
+                if (cfg.chartType === 'bar-horizontal') {
+                  const sorted = [...chartData].sort((a, b) => (b[cfg.metrics[0]] || 0) - (a[cfg.metrics[0]] || 0))
+                  return (
+                    <ResponsiveContainer width="100%" height={100 + sorted.length * 45}>
+                      <BarChart data={sorted} layout="vertical" barCategoryGap={8}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+                        <YAxis type="category" dataKey="label" stroke="#9ca3af" tick={{ fontSize: 12 }} width={80} interval={0} />
+                        <Tooltip content={tooltipContent} />
+                        <Legend wrapperStyle={{ fontSize: 13 }} />
+                        {activeMetrics.map(m => (
+                          <Bar key={m.key} dataKey={normKey(m.key)} name={m.name} fill={m.color} radius={[0,6,6,0]}>
+                            {showLabels && <LabelList dataKey={normKey(m.key)} position="right" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+                          </Bar>
+                        ))}
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )
+                }
+                return (
+                  <ResponsiveContainer width="100%" height={340}>
+                    <BarChart data={chartData}>{axes}{renderBars('top')}</BarChart>
+                  </ResponsiveContainer>
+                )
+              }
+
+              return (
+                <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <ChartTypeSwitcher value={cfg.chartType} onChange={v => updateCfg({ chartType: v })} />
+                      <span className="text-gray-600 text-xs mx-1">|</span>
+                      {FLEX_METRICS.map(m => (
+                        <button key={m.key}
+                          onClick={() => {
+                            const has = cfg.metrics.includes(m.key)
+                            const next = has ? cfg.metrics.filter(k => k !== m.key) : [...cfg.metrics, m.key]
+                            if (next.length > 0) updateCfg({ metrics: next })
+                          }}
+                          style={{
+                            background: cfg.metrics.includes(m.key) ? m.color + '22' : '#374151',
+                            color: cfg.metrics.includes(m.key) ? m.color : '#d1d5db',
+                            border: `1px solid ${cfg.metrics.includes(m.key) ? m.color : 'transparent'}`
+                          }}
+                          className="px-3 py-1.5 rounded text-sm transition">{m.name}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <input type="checkbox" checked={showLabels} onChange={() => updateCfg({ showLabels: !showLabels })} className="accent-blue-500 w-4 h-4" />
+                        Значения
+                      </label>
+                      {cfg.chartType === 'line' && (
+                        <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                          <input type="checkbox" checked={showDots} onChange={() => updateCfg({ showDots: !showDots })} className="accent-blue-500 w-4 h-4" />
+                          Точки
+                        </label>
+                      )}
+                      <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: normalize ? '#f59e0b' : '#9ca3af' }}>
+                        <input type="checkbox" checked={normalize} onChange={() => updateCfg({ normalize: !normalize })} className="accent-amber-500 w-4 h-4" />
+                        Норм. шкала
+                      </label>
+                      <DownloadBtn onClick={() => {
+                        const rows = trendWithCalc.map(r => {
+                          const obj: any = { Период: r.label }
+                          activeMetrics.forEach(m => { obj[m.name] = r[m.key] ?? 0 })
+                          return obj
+                        })
+                        xlsxDownload(rows, `Гибкий_график${yearLabel}`, 'График')
+                      }} title="Скачать график" />
+                    </div>
+                  </div>
+                  {renderFlexChart()}
+                </div>
+              )
+            })()}
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <SingleMetricChart title="Выручка" data={trendWithCalc} dataKey="revenue" xKey="label" color="#3b82f6" formatTooltip={v => fmt(v)} filename={`Выручка${yearLabel}`} />
               <SingleMetricChart title="Кол-во продаж (наполненность)" data={trendWithCalc} dataKey="quantity" xKey="label" color="#8b5cf6" formatTooltip={v => fmtNum(v)} filename={`Кол-во_продаж${yearLabel}`} />
@@ -765,6 +958,8 @@ export default function Dashboard() {
                 { key: 'grossProfit', name: 'Вал. прибыль', color: '#10b981', isSecondary: true },
               ]}
               filename="По_годам" />
+
+
           </div>
         )}
 
