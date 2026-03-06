@@ -30,7 +30,8 @@ router.get('/kpi', async (req: Request, res: Response) => {
   const uniqueStores = storeCount.length || 1
   const { margin, avgCheck, fillRate } = calcMetrics(totalRevenue, totalGrossProfit, totalChecks, totalQuantity)
   const avgQuantityPerStore = Math.round(totalQuantity / uniqueStores)
-  res.json({ totalRevenue, totalGrossProfit, totalChecks, totalQuantity, margin, avgCheck, fillRate, recordCount: agg._count.id, avgQuantityPerStore, uniqueStores })
+  const avgPrice = totalQuantity > 0 ? Math.round(totalRevenue / totalQuantity) : 0
+  res.json({ totalRevenue, totalGrossProfit, totalChecks, totalQuantity, margin, avgCheck, fillRate, recordCount: agg._count.id, avgQuantityPerStore, uniqueStores, avgPrice })
 })
 
 router.get('/by-year', async (req: Request, res: Response) => {
@@ -111,6 +112,7 @@ router.get('/trend', async (req: Request, res: Response) => {
       quantity,
       storeCount,
       avgQuantityPerStore: Math.round(quantity / storeCount),
+      avgPrice: quantity > 0 ? Math.round((d._sum.revenue || 0) / quantity) : 0,
     }
   }))
 })

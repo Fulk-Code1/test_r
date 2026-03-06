@@ -12,7 +12,7 @@ const API = import.meta.env.VITE_API_URL || '/api'
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316', '#14b8a6', '#a855f7']
 const MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
 const MONTHS_FULL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']
-const EXCLUDED_FROM_EXTRA = new Set(['revenue', 'quantity', 'checks', 'avgCheck', 'grossProfit', 'margin', 'label', 'year', 'month', 'storeCount', 'avgQuantityPerStore'])
+const EXCLUDED_FROM_EXTRA = new Set(['revenue', 'quantity', 'checks', 'avgCheck', 'grossProfit', 'margin', 'label', 'year', 'month', 'storeCount', 'avgQuantityPerStore', 'avgPrice'])
 
 // ─── Flex chart metrics ──────────────────────────────────────────
 const FLEX_METRICS = [
@@ -22,6 +22,7 @@ const FLEX_METRICS = [
   { key: 'checks',             name: 'Кол-во чеков',         color: '#06b6d4', isPercent: false, isSecondary: true },
   { key: 'margin',             name: 'Маржа (%)',             color: '#ec4899', isPercent: true  },
   { key: 'avgCheck',           name: 'Ср. чек',              color: '#f59e0b', isPercent: false },
+  { key: 'avgPrice',           name: 'Ср. цена',             color: '#f97316', isPercent: false },
 ]
 
 // ─── Excel helpers ───────────────────────────────────────────────
@@ -671,6 +672,7 @@ export default function Dashboard() {
     avgCheck: r.checks > 0 ? Math.round(r.revenue / r.checks) : 0,
     margin: r.revenue > 0 ? parseFloat(((r.grossProfit / r.revenue) * 100).toFixed(2)) : 0,
     avgQuantityPerStore: r.avgQuantityPerStore ?? 0,
+    avgPrice: r.quantity > 0 ? Math.round(r.revenue / r.quantity) : 0,
   }))
 
   const yearLabel = selectedYear ? `_${selectedYear}` : ''
@@ -709,7 +711,8 @@ export default function Dashboard() {
     { label: 'Выручка',       value: fmt(kpi.totalRevenue ?? 0),       color: 'text-blue-400' },
     { label: 'Кол-во продаж', value: fmtNum(kpi.totalQuantity ?? 0), color: 'text-purple-400' },
     { label: 'Кол-во чеков',  value: fmtNum(kpi.totalChecks ?? 0),   color: 'text-cyan-400' },
-    { label: 'Ср. чек',       value: fmt(kpi.avgCheck ?? 0),           color: 'text-yellow-400' },
+    { label: 'Ср. чек',        value: fmtNum(kpi.avgCheck ?? 0) + ' MDL', color: 'text-yellow-400' },
+    { label: 'Ср. цена',       value: fmtNum(kpi.avgPrice ?? 0) + ' MDL', color: 'text-orange-400' },
     { label: 'Вал. прибыль',  value: fmt(kpi.totalGrossProfit ?? 0),   color: 'text-green-400' },
     { label: 'Маржа', value: fmtPct(kpi.totalRevenue > 0 ? (kpi.totalGrossProfit / kpi.totalRevenue) * 100 : 0), color: 'text-pink-400' },
   ] : []
