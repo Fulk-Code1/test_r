@@ -517,8 +517,8 @@ export default function Dashboard() {
   const [extraFields, setExtraFields] = useState<{ key: string; name: string; color: string }[]>([])
 
   const [flexChart, setFlexChart] = useState<{
-    metrics: string[]; chartType: ChartType; showLabels: boolean; showDots: boolean; normalize: boolean
-  }>({ metrics: ['revenue'], chartType: 'line', showLabels: false, showDots: false, normalize: false })
+    metrics: string[]; chartType: ChartType; showLabels: boolean; showDots: boolean; normalize: boolean; showAllHorizontal: boolean
+  }>({ metrics: ['revenue'], chartType: 'line', showLabels: false, showDots: false, normalize: false, showAllHorizontal: false })
 
   const [filterYears,      setFilterYears]      = useState<number[]>([])
   const [filterMonths,     setFilterMonths]     = useState<number[]>([])
@@ -855,21 +855,32 @@ export default function Dashboard() {
                 )
                 if (cfg.chartType === 'bar-horizontal') {
                   const sorted = [...chartData].sort((a, b) => (b[cfg.metrics[0]] || 0) - (a[cfg.metrics[0]] || 0))
+                  const displayed = cfg.showAllHorizontal ? sorted : sorted.slice(0, 10)
                   return (
-                    <ResponsiveContainer width="100%" height={100 + sorted.length * 45}>
-                      <BarChart data={sorted} layout="vertical" barCategoryGap={8}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                        <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
-                        <YAxis type="category" dataKey="label" stroke="#9ca3af" tick={{ fontSize: 12 }} width={80} interval={0} />
-                        <Tooltip content={tooltipContent} />
-                        <Legend wrapperStyle={{ fontSize: 13 }} />
-                        {activeMetrics.map(m => (
-                          <Bar key={m.key} dataKey={normKey(m.key)} name={m.name} fill={m.color} radius={[0,6,6,0]}>
-                            {showLabels && <LabelList dataKey={normKey(m.key)} position="right" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
-                          </Bar>
-                        ))}
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <>
+                      <ResponsiveContainer width="100%" height={100 + displayed.length * 45}>
+                        <BarChart data={displayed} layout="vertical" barCategoryGap={8}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                          <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+                          <YAxis type="category" dataKey="label" stroke="#9ca3af" tick={{ fontSize: 12 }} width={80} interval={0} />
+                          <Tooltip content={tooltipContent} />
+                          <Legend wrapperStyle={{ fontSize: 13 }} />
+                          {activeMetrics.map(m => (
+                            <Bar key={m.key} dataKey={normKey(m.key)} name={m.name} fill={m.color} radius={[0,6,6,0]}>
+                              {showLabels && <LabelList dataKey={normKey(m.key)} position="right" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+                            </Bar>
+                          ))}
+                        </BarChart>
+                      </ResponsiveContainer>
+                      {sorted.length > 10 && (
+                        <div className="flex justify-center mt-2">
+                          <button onClick={() => updateCfg({ showAllHorizontal: !cfg.showAllHorizontal })}
+                            className="px-4 py-1.5 rounded-lg text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 transition">
+                            {cfg.showAllHorizontal ? 'Свернуть до топ-10' : `Показать все (${sorted.length})`}
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )
                 }
                 return (
@@ -883,6 +894,7 @@ export default function Dashboard() {
                 <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
                     <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-lg mr-2">Аналитика</h3>
                       <ChartTypeSwitcher value={cfg.chartType} onChange={v => updateCfg({ chartType: v })} />
                       <span className="text-gray-600 text-xs mx-1">|</span>
                       {FLEX_METRICS.map(m => (
@@ -922,7 +934,7 @@ export default function Dashboard() {
                           activeMetrics.forEach(m => { obj[m.name] = r[m.key] ?? 0 })
                           return obj
                         })
-                        xlsxDownload(rows, `Гибкий_график${yearLabel}`, 'График')
+                        xlsxDownload(rows, `Аналитика${yearLabel}`, 'Аналитика')
                       }} title="Скачать график" />
                     </div>
                   </div>
