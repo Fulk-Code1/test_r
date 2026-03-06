@@ -531,8 +531,8 @@ export default function Dashboard() {
   const [storeTrendShowDots, setStoreTrendShowDots] = useState(false)
   const [storeTrendShowLabels, setStoreTrendShowLabels] = useState(false)
   const [flexChart, setFlexChart] = useState<{
-    metrics: string[]; chartType: ChartType; showLabels: boolean; showDots: boolean; normalize: boolean; showAllHorizontal: boolean
-  }>({ metrics: ['revenue'], chartType: 'line', showLabels: false, showDots: false, normalize: false, showAllHorizontal: false })
+    metrics: string[]; chartType: ChartType; showLabels: boolean; showDots: boolean; normalize: boolean; showAllHorizontal: boolean; sortMode: 'chrono' | 'value'
+  }>({ metrics: ['revenue'], chartType: 'line', showLabels: false, showDots: false, normalize: false, showAllHorizontal: false, sortMode: 'chrono' })
 
   const [filterYears,      setFilterYears]      = useState<number[]>([])
   const [filterMonths,     setFilterMonths]     = useState<number[]>([])
@@ -802,6 +802,10 @@ export default function Dashboard() {
               const rightMetrics = activeMetrics.filter(m => m.isSecondary || m.isPercent)
               const hasDual = !normalize && leftMetrics.length > 0 && rightMetrics.length > 0
 
+              const sortedData = cfg.sortMode === 'value'
+                ? [...trendWithCalc].sort((a, b) => (b[cfg.metrics[0]] ?? 0) - (a[cfg.metrics[0]] ?? 0))
+                : trendWithCalc
+
               const normalizeData = (data: any[]) => {
                 if (!normalize) return data
                 return data.map(row => {
@@ -819,7 +823,7 @@ export default function Dashboard() {
                 if (normalize) return 'left'
                 return (m.isSecondary || m.isPercent) ? 'right' : 'left'
               }
-              const chartData = normalizeData(trendWithCalc)
+              const chartData = normalizeData(sortedData)
               const yFmt = normalize ? (v: any) => `${Number(v).toFixed(0)} %` : (v: any) => fmtShort(v)
               const yFmtRight = (v: any) => {
                 const hasPercent = rightMetrics.some(m => m.isPercent)
@@ -854,19 +858,6 @@ export default function Dashboard() {
                 )
               }
 
-              const axes = (
-                <>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
-                  <YAxis yAxisId="left" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
-                  {hasDual && (
-                    <YAxis yAxisId="right" orientation="right" stroke="#6b7280" tick={{ fontSize: 12 }} tickFormatter={yFmtRight} />
-                  )}
-                  <Tooltip content={tooltipContent} />
-                  <Legend wrapperStyle={{ fontSize: 13 }} />
-                </>
-              )
-
               const renderLines = () => activeMetrics.map(m => (
                 <Line key={m.key} yAxisId={getAxis(m)} type="monotone" dataKey={normKey(m.key)} name={m.name} stroke={m.color} strokeWidth={2.5}
                   dot={showDots ? { stroke: m.color, strokeWidth: 2, r: 4 } : false}>
@@ -874,25 +865,169 @@ export default function Dashboard() {
                 </Line>
               ))
 
-              const renderBars = (position: 'top' | 'right' = 'top') => activeMetrics.map(m => (
-                <Bar key={m.key} yAxisId={getAxis(m)} dataKey={normKey(m.key)} name={m.name} fill={m.color} radius={position === 'top' ? [5,5,0,0] : [0,6,6,0]}>
-                  {showLabels && <LabelList dataKey={normKey(m.key)} position={position} formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
-                </Bar>
-              ))
-
               const renderFlexChart = () => {
-                if (cfg.chartType === 'line') return (
-                  <ResponsiveContainer width="100%" height={340}>
-                    <LineChart data={chartData}>{axes}{renderLines()}</LineChart>
-                  </ResponsiveContainer>
-                )
+                // Линейный
+                if (cfg.chartType === 'line') {
+                  const lineData = cfg.sortMode === 'value'
+                    ? [...chartData].sort((a, b) => (b[normKey(cfg.metrics[0])] || 0) - (a[normKey(cfg.metrics[0])] || 0))
+                    : chartData
+                  return (
+                    <ResponsiveContainer width="100%" height={340}>
+                      <LineChart data={lineData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: cfg.sortMode === 'value' ? 10 : 12 }} interval={cfg.sortMode === 'value' ? 0 : xInterval} angle={cfg.sortMode === 'value' ? -35 : 0} textAnchor={cfg.sortMode === 'value' ? 'end' : 'middle'} height={cfg.sortMode === 'value' ? 60 : 30} />
+                        <YAxis yAxisId="left" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+                        {hasDual && <YAxis yAxisId="right" orientation="right" stroke="#6b7280" tick={{ fontSize: 12 }} tickFormatter={yFmtRight} />}
+                        <Tooltip content={tooltipContent} />
+                        <Legend wrapperStyle={{ fontSize: 13 }} />
+                        {renderLines()}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )
+                }
+
+                // Вертикальные столбцы
+                if (cfg.chartType === 'bar') {
+                  if (cfg.sortMode === 'value') {
+                    // Каждая метрика сортируется независимо — индекс по оси X
+                    const sortedByMetric: Record<string, any[]> = {}
+                    activeMetrics.forEach(m => {
+                      sortedByMetric[m.key] = [...trendWithCalc]
+                        .sort((a, b) => (b[m.key] ?? 0) - (a[m.key] ?? 0))
+                    })
+                    const valueData = Array.from({ length: trendWithCalc.length }, (_, i) => {
+                      const obj: any = { idx: i + 1 }
+                      activeMetrics.forEach(m => {
+                        obj[m.key] = sortedByMetric[m.key][i]?.[m.key] ?? 0
+                      })
+                      return obj
+                    })
+                    return (
+                      <ResponsiveContainer width="100%" height={340}>
+                        <BarChart data={valueData} margin={{ top: showLabels ? 24 : 4, right: 10, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                          <XAxis dataKey="idx" stroke="#9ca3af" tick={{ fontSize: 12 }} />
+                          <YAxis yAxisId="left" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={yFmt} />
+                          {hasDual && <YAxis yAxisId="right" orientation="right" stroke="#6b7280" tick={{ fontSize: 12 }} tickFormatter={yFmtRight} />}
+                          <Tooltip content={({ active, payload, label }: any) => {
+                            if (!active || !payload?.length) return null
+                            return (
+                              <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: '10px 14px' }}>
+                                <p style={{ color: '#9ca3af', fontSize: 12, marginBottom: 6 }}>#{label}</p>
+                                {payload.map((entry: any) => {
+                                  const met = FLEX_METRICS.find(x => x.key === entry.dataKey)
+                                  const formatted = met?.isPercent
+                                    ? `${Number(entry.value).toFixed(1).replace('.', ',')} %`
+                                    : met?.isSecondary ? fmtNum(Number(entry.value)) : fmt(Number(entry.value))
+                                  const periodLabel = sortedByMetric[entry.dataKey]?.[label - 1]?.label || ''
+                                  return (
+                                    <p key={entry.dataKey} style={{ color: entry.color, fontSize: 13, margin: '2px 0' }}>
+                                      {entry.name}: <strong>{formatted}</strong>
+                                      <span style={{ color: '#6b7280', fontSize: 11 }}> ({periodLabel})</span>
+                                    </p>
+                                  )
+                                })}
+                              </div>
+                            )
+                          }} />
+                          <Legend wrapperStyle={{ fontSize: 13 }} />
+                          {activeMetrics.map(m => (
+                            <Bar key={m.key} yAxisId={getAxis(m)} dataKey={m.key} name={m.name} fill={m.color} radius={[5,5,0,0]}>
+                              {showLabels && <LabelList dataKey={m.key} position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+                            </Bar>
+                          ))}
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )
+                  }
+                  return (
+                    <ResponsiveContainer width="100%" height={340}>
+                      <BarChart data={chartData} margin={{ top: showLabels ? 24 : 4, right: 10, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
+                        <YAxis yAxisId="left" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+                        {hasDual && <YAxis yAxisId="right" orientation="right" stroke="#6b7280" tick={{ fontSize: 12 }} tickFormatter={yFmtRight} />}
+                        <Tooltip content={tooltipContent} />
+                        <Legend wrapperStyle={{ fontSize: 13 }} />
+                        {activeMetrics.map(m => (
+                          <Bar key={m.key} yAxisId={getAxis(m)} dataKey={normKey(m.key)} name={m.name} fill={m.color} radius={[5,5,0,0]}>
+                            {showLabels && <LabelList dataKey={normKey(m.key)} position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+                          </Bar>
+                        ))}
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )
+                }
+
+                // Горизонтальные столбцы
                 if (cfg.chartType === 'bar-horizontal') {
-                  const sorted = [...chartData].sort((a, b) => (b[cfg.metrics[0]] || 0) - (a[cfg.metrics[0]] || 0))
+                  if (cfg.sortMode === 'value') {
+                    const sortedByMetric: Record<string, any[]> = {}
+                    activeMetrics.forEach(m => {
+                      sortedByMetric[m.key] = [...trendWithCalc]
+                        .sort((a, b) => (b[m.key] ?? 0) - (a[m.key] ?? 0))
+                    })
+                    const valueData = Array.from({ length: trendWithCalc.length }, (_, i) => {
+                      const obj: any = { idx: i + 1 }
+                      activeMetrics.forEach(m => {
+                        obj[m.key] = sortedByMetric[m.key][i]?.[m.key] ?? 0
+                      })
+                      return obj
+                    })
+                    const displayed = cfg.showAllHorizontal ? valueData : valueData.slice(0, 10)
+                    return (
+                      <>
+                        <ResponsiveContainer width="100%" height={100 + displayed.length * 45}>
+                          <BarChart data={displayed} layout="vertical" barCategoryGap={8} margin={{ right: showLabels ? 60 : 10 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                            <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={yFmt} />
+                            <YAxis type="category" dataKey="idx" stroke="#9ca3af" tick={{ fontSize: 12 }} width={30} interval={0} />
+                            <Tooltip content={({ active, payload, label }: any) => {
+                              if (!active || !payload?.length) return null
+                              return (
+                                <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: '10px 14px' }}>
+                                  <p style={{ color: '#9ca3af', fontSize: 12, marginBottom: 6 }}>#{label}</p>
+                                  {payload.map((entry: any) => {
+                                    const met = FLEX_METRICS.find(x => x.key === entry.dataKey)
+                                    const formatted = met?.isPercent
+                                      ? `${Number(entry.value).toFixed(1).replace('.', ',')} %`
+                                      : met?.isSecondary ? fmtNum(Number(entry.value)) : fmt(Number(entry.value))
+                                    const periodLabel = sortedByMetric[entry.dataKey]?.[label - 1]?.label || ''
+                                    return (
+                                      <p key={entry.dataKey} style={{ color: entry.color, fontSize: 13, margin: '2px 0' }}>
+                                        {entry.name}: <strong>{formatted}</strong>
+                                        <span style={{ color: '#6b7280', fontSize: 11 }}> ({periodLabel})</span>
+                                      </p>
+                                    )
+                                  })}
+                                </div>
+                              )
+                            }} />
+                            <Legend wrapperStyle={{ fontSize: 13 }} />
+                            {activeMetrics.map(m => (
+                              <Bar key={m.key} dataKey={m.key} name={m.name} fill={m.color} radius={[0,6,6,0]}>
+                                {showLabels && <LabelList dataKey={m.key} position="right" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+                              </Bar>
+                            ))}
+                          </BarChart>
+                        </ResponsiveContainer>
+                        {valueData.length > 10 && (
+                          <div className="flex justify-center mt-2">
+                            <button onClick={() => updateCfg({ showAllHorizontal: !cfg.showAllHorizontal })}
+                              className="px-4 py-1.5 rounded-lg text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 transition">
+                              {cfg.showAllHorizontal ? 'Свернуть до топ-10' : `Показать все (${valueData.length})`}
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )
+                  }
+                  const sorted = chartData
                   const displayed = cfg.showAllHorizontal ? sorted : sorted.slice(0, 10)
                   return (
                     <>
                       <ResponsiveContainer width="100%" height={100 + displayed.length * 45}>
-                        <BarChart data={displayed} layout="vertical" barCategoryGap={8}>
+                        <BarChart data={displayed} layout="vertical" barCategoryGap={8} margin={{ right: showLabels ? 60 : 10 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                           <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
                           <YAxis type="category" dataKey="label" stroke="#9ca3af" tick={{ fontSize: 12 }} width={80} interval={0} />
@@ -916,11 +1051,8 @@ export default function Dashboard() {
                     </>
                   )
                 }
-                return (
-                  <ResponsiveContainer width="100%" height={340}>
-                    <BarChart data={chartData}>{axes}{renderBars('top')}</BarChart>
-                  </ResponsiveContainer>
-                )
+
+                return null
               }
 
               return (
@@ -961,15 +1093,25 @@ export default function Dashboard() {
                         <input type="checkbox" checked={normalize} onChange={() => updateCfg({ normalize: !normalize })} className="accent-amber-500 w-4 h-4" />
                         Норм. шкала
                       </label>
-                      <DownloadBtn onClick={() => {
-                        const rows = trendWithCalc.map(r => {
-                          const obj: any = { Период: r.label }
-                          activeMetrics.forEach(m => { obj[m.name] = r[m.key] ?? 0 })
-                          return obj
-                        })
-                        xlsxDownload(rows, `Аналитика${yearLabel}`, 'Аналитика')
-                      }} title="Скачать график" />
+                      {cfg.chartType !== 'line' && (
+                        <div className="flex rounded-lg overflow-hidden border border-gray-600">
+                          {(['chrono', 'value'] as const).map(mode => (
+                            <button key={mode} onClick={() => updateCfg({ sortMode: mode })}
+                              className={`px-3 py-1.5 text-xs transition ${cfg.sortMode === mode ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>
+                              {mode === 'chrono' ? 'Хронология' : 'Значение'}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
+                    <DownloadBtn onClick={() => {
+                      const rows = sortedData.map(r => {
+                        const obj: any = { Период: r.label }
+                        activeMetrics.forEach(m => { obj[m.name] = r[m.key] ?? 0 })
+                        return obj
+                      })
+                      xlsxDownload(rows, `Аналитика${yearLabel}`, 'Аналитика')
+                    }} title="Скачать график" />
                   </div>
                   {renderFlexChart()}
                 </div>
