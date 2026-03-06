@@ -195,7 +195,6 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
 
   const dynamicHeight = chartType === 'bar-horizontal' ? 100 + preparedData.length * 45 : 340
   const barSize = chartType === 'bar-horizontal' ? (showAllHorizontal ? 16 : 28) : undefined
-  const strokeWidth = chartType === 'bar-horizontal' ? (showAllHorizontal ? 0.5 : 1.5) : undefined
   const xInterval = Math.floor(data.length / 10)
 
   // Нормализация: каждый ряд приводим к 0-100 для читаемости на одной оси
@@ -227,6 +226,29 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
     </div>
   )
 
+  const tooltipEl = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null
+    return (
+      <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: '10px 14px' }}>
+        <p style={{ color: '#fff', fontSize: 13, marginBottom: 6 }}>{label}</p>
+        {payload.map((entry: any) => {
+          const m = metrics.find(x => x.name === entry.name)
+          const realVal = normalize ? entry.payload[m?.key || ''] : entry.value
+          const formatted = m?.isPercent
+            ? `${Number(realVal).toFixed(1)}%`
+            : m?.isSecondary
+              ? fmtNum(Number(realVal))
+              : fmt(Number(realVal))
+          return (
+            <p key={entry.name} style={{ color: entry.color, fontSize: 13, margin: '2px 0' }}>
+              {entry.name}: <strong>{formatted}</strong>
+            </p>
+          )
+        })}
+      </div>
+    )
+  }
+
   const axes = (
     <>
       <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -238,28 +260,19 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
         <YAxis yAxisId="right" orientation="right" stroke="#3b82f6"
           tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} domain={[0, 'auto']} />
       )}
-      <Tooltip content={({ active, payload, label }) => {
-        if (!active || !payload?.length) return null
-        return (
-          <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: '10px 14px' }}>
-            <p style={{ color: '#fff', fontSize: 13, marginBottom: 6 }}>{label}</p>
-            {payload.map((entry: any) => {
-              const m = metrics.find(x => x.name === entry.name)
-              const realVal = normalize ? entry.payload[m?.key || ''] : entry.value
-              const formatted = m?.isPercent
-                ? `${Number(realVal).toFixed(1)}%`
-                : m?.isSecondary
-                  ? fmtNum(Number(realVal))
-                  : fmt(Number(realVal))
-              return (
-                <p key={entry.name} style={{ color: entry.color, fontSize: 13, margin: '2px 0' }}>
-                  {entry.name}: <strong>{formatted}</strong>
-                </p>
-              )
-            })}
-          </div>
-        )
-      }} />
+      <Tooltip content={tooltipEl} />
+      <Legend wrapperStyle={{ fontSize: 13 }} />
+    </>
+  )
+
+  const axesHorizontal = (
+    <>
+      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+      <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }}
+        tickFormatter={v => normalize ? `${Number(v).toFixed(0)}%` : fmtShort(v)}
+        domain={normalize ? [0, 100] : undefined} />
+      <YAxis type="category" dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} width={80} interval={0} />
+      <Tooltip content={tooltipEl} />
       <Legend wrapperStyle={{ fontSize: 13 }} />
     </>
   )
@@ -336,11 +349,11 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
           </BarChart>
         ) : (
           <BarChart data={normalize ? normalizedData.slice(0, showAllHorizontal ? data.length : 10) : preparedData}
-            layout="vertical" barSize={barSize} barCategoryGap={8}>
-            {axes}
+            layout="vertical" barSize={barSize} barCategoryGap={8} margin={{ right: showLabels ? 60 : 10 }}>
+            {axesHorizontal}
             {visibleMetrics.map(m => (
-              <Bar key={m.key} yAxisId={getYAxisId(m)}
-                dataKey={chartDataKey(m)} name={m.name} fill={m.color} radius={[0,6,6,0]} stroke="#64748b" strokeWidth={strokeWidth}>
+              <Bar key={m.key}
+                dataKey={chartDataKey(m)} name={m.name} fill={m.color} radius={[0,6,6,0]}>
                 {showLabels && <LabelList dataKey={chartDataKey(m)} position="right"
                   formatter={(v: any) => m.isPercent ? `${Number(v).toFixed(1)}%` : fmtShort(v)}
                   style={{ fontSize: 11, fill: m.color }} />}
@@ -887,7 +900,9 @@ export default function Dashboard() {
               const renderLines = () => activeMetrics.map(m => (
                 <Line key={m.key} yAxisId={getAxis(m)} type="monotone" dataKey={normKey(m.key)} name={m.name} stroke={m.color} strokeWidth={2.5}
                   dot={showDots ? { stroke: m.color, strokeWidth: 2, r: 4 } : false}>
-                  {showLabels && <LabelList dataKey={normKey(m.key)} position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11, fill: m.color }} />}
+                  {showLabels && <LabelList dataKey={normalize ? m.key : normKey(m.key)} position="top"
+                    formatter={(v: any) => m.isPercent ? `${Number(v).toFixed(1)}%` : m.isSecondary ? fmtNum(Number(v)) : fmtShort(Number(v))}
+                    style={{ fontSize: 11, fill: m.color }} />}
                 </Line>
               ))
 
