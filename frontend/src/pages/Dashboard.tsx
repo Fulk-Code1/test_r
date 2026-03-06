@@ -1143,15 +1143,15 @@ export default function Dashboard() {
                 { key: 'margin',      name: 'Маржа (%)',     color: '#ec4899', isPercent: true },
               ]}
               filename={`Валовая_прибыль_и_маржа${yearLabel}`} />
-            <MultiMetricChart title="Остальное" data={trendWithCalc} xKey="label" metrics={extraFields}
-              emptyMessage="Здесь будут отображаться дополнительные поля добавленные через Google Sheets или маппинг"
-              filename={`Остальное${yearLabel}`} />
             <MultiMetricChart title="По годам" data={yearTrend} xKey="year" dualAxis
               metrics={[
                 { key: 'revenue',     name: 'Выручка',      color: '#3b82f6' },
                 { key: 'grossProfit', name: 'Вал. прибыль', color: '#10b981', isSecondary: true },
               ]}
               filename="По_годам" />
+            <MultiMetricChart title="Остальное" data={trendWithCalc} xKey="label" metrics={extraFields}
+              emptyMessage="Здесь будут отображаться дополнительные поля добавленные через Google Sheets или маппинг"
+              filename={`Остальное${yearLabel}`} />
 
 
           </div>
