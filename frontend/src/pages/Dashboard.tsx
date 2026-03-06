@@ -46,17 +46,12 @@ function DownloadBtn({ onClick, title }: { onClick: () => void; title?: string }
   )
 }
 
-function fmt(n: number) {
-  if (n >= 1_000_000) return `${(n/1_000_000).toFixed(1)}M MDL`
-  if (n >= 1_000) return `${(n/1_000).toFixed(0)}K MDL`
-  return `${n.toFixed(0)} MDL`
+function fmtNum(n: number) {
+  return Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ')
 }
-function fmtShort(n: number) {
-  if (n >= 1_000_000) return `${(n/1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n/1_000).toFixed(0)}K`
-  return `${n.toFixed(0)}`
-}
-function fmtPct(n: number) { return `${n.toFixed(1)}%` }
+function fmt(n: number) { return `${fmtNum(n)} MDL` }
+function fmtShort(n: number) { return fmtNum(n) }
+function fmtPct(n: number) { return `${n.toFixed(1).replace('.', ',')} %` }
 
 type ChartType = 'line' | 'bar' | 'bar-horizontal'
 const ttStyle = { background: '#1f2937', border: '1px solid #374151', fontSize: 13 }
@@ -238,8 +233,8 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
               const formatted = m?.isPercent
                 ? `${Number(realVal).toFixed(1)}%`
                 : m?.isSecondary
-                  ? Number(realVal).toLocaleString()
-                  : `${Number(realVal).toLocaleString()} MDL`
+                  ? fmtNum(Number(realVal))
+                  : fmt(Number(realVal))
               return (
                 <p key={entry.name} style={{ color: entry.color, fontSize: 13, margin: '2px 0' }}>
                   {entry.name}: <strong>{formatted}</strong>
@@ -429,7 +424,7 @@ function RangeDropdown({ label, unit, min, setMin, max, setMax, onApply }: {
     else if (focusedField === 'max') { setMax(value); onApply() }
   }
   const displayLabel = isActive
-    ? `${label}: ${min ? (unit === 'MDL' ? Number(min).toLocaleString() : min + (unit || '')) : '—'} → ${max ? (unit === 'MDL' ? Number(max).toLocaleString() : max + (unit || '')) : '—'}`
+    ? `${label}: ${min ? (unit === 'MDL' ? fmtNum(Number(min)) : min + (unit || '')) : '—'} → ${max ? (unit === 'MDL' ? fmtNum(Number(max)) : max + (unit || '')) : '—'}`
     : label
   return (
     <div ref={ref} className="relative">
@@ -670,8 +665,8 @@ export default function Dashboard() {
 
   const kpiCards = kpi ? [
     { label: 'Выручка',       value: fmt(kpi.totalRevenue ?? 0),       color: 'text-blue-400' },
-    { label: 'Кол-во продаж', value: (kpi.totalQuantity ?? 0).toLocaleString(), color: 'text-purple-400' },
-    { label: 'Кол-во чеков',  value: (kpi.totalChecks ?? 0).toLocaleString(),   color: 'text-cyan-400' },
+    { label: 'Кол-во продаж', value: fmtNum(kpi.totalQuantity ?? 0), color: 'text-purple-400' },
+    { label: 'Кол-во чеков',  value: fmtNum(kpi.totalChecks ?? 0),   color: 'text-cyan-400' },
     { label: 'Ср. чек',       value: fmt(kpi.avgCheck ?? 0),           color: 'text-yellow-400' },
     { label: 'Вал. прибыль',  value: fmt(kpi.totalGrossProfit ?? 0),   color: 'text-green-400' },
     { label: 'Маржа', value: fmtPct(kpi.totalRevenue > 0 ? (kpi.totalGrossProfit / kpi.totalRevenue) * 100 : 0), color: 'text-pink-400' },
@@ -744,10 +739,10 @@ export default function Dashboard() {
         {activeTab === 'overview' && (
           <div className="space-y-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SingleMetricChart title="Выручка" data={trendWithCalc} dataKey="revenue" xKey="label" color="#3b82f6" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Выручка${yearLabel}`} />
-              <SingleMetricChart title="Кол-во продаж (наполненность)" data={trendWithCalc} dataKey="quantity" xKey="label" color="#8b5cf6" formatTooltip={v => v.toLocaleString()} filename={`Кол-во_продаж${yearLabel}`} />
+              <SingleMetricChart title="Выручка" data={trendWithCalc} dataKey="revenue" xKey="label" color="#3b82f6" formatTooltip={v => fmt(v)} filename={`Выручка${yearLabel}`} />
+              <SingleMetricChart title="Кол-во продаж (наполненность)" data={trendWithCalc} dataKey="quantity" xKey="label" color="#8b5cf6" formatTooltip={v => fmtNum(v)} filename={`Кол-во_продаж${yearLabel}`} />
             </div>
-            <SingleMetricChart title="Кол-во чеков" data={trendWithCalc} dataKey="checks" xKey="label" color="#06b6d4" formatTooltip={v => v.toLocaleString()} filename={`Кол-во_чеков${yearLabel}`} />
+            <SingleMetricChart title="Кол-во чеков" data={trendWithCalc} dataKey="checks" xKey="label" color="#06b6d4" formatTooltip={v => fmtNum(v)} filename={`Кол-во_чеков${yearLabel}`} />
             <MultiMetricChart title="Ср. чек / Ср. кол-во на магазин / Маржа" data={trendWithCalc} xKey="label" dualAxis
               metrics={[
                 { key: 'avgCheck',            name: 'Ср. чек (MDL)',          color: '#f59e0b' },
@@ -787,10 +782,10 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={320}>
                 <PieChart>
                   <Pie data={byStore} dataKey="revenue" nameKey="store" cx="50%" cy="50%" outerRadius={110}
-                    label={showStorePieLabels ? ({ payload, percent }) => `${payload.store} ${((percent ?? 0)*100).toFixed(0)}%` : false}>
+                    label={showStorePieLabels ? ({ payload, percent }) => `${payload.store} ${((percent ?? 0)*100).toFixed(1).replace('.', ',')} %` : false}>
                     {byStore.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} MDL`} contentStyle={{ background: '#1f2937', border: '1px solid #374151', fontSize: 13 }} labelStyle={{ color: '#fff', fontSize: 13 }} itemStyle={{ color: '#fff', fontSize: 13 }} />
+                  <Tooltip formatter={(v: any) => fmt(Number(v))} contentStyle={{ background: '#1f2937', border: '1px solid #374151', fontSize: 13 }} labelStyle={{ color: '#fff', fontSize: 13 }} itemStyle={{ color: '#fff', fontSize: 13 }} />
                   <Legend wrapperStyle={{ fontSize: 13 }} />
                 </PieChart>
               </ResponsiveContainer>
@@ -798,7 +793,7 @@ export default function Dashboard() {
                 <DownloadBtn onClick={() => xlsxDownload(byStore.map(r => ({ Магазин: r.store, 'Выручка (MDL)': r.revenue })), `Доля_выручки_по_магазинам${yearLabel}`, 'Доля по магазинам')} title="Скачать" />
               </div>
             </div>
-            <SingleMetricChart title="Топ магазинов по выручке" data={byStore} dataKey="revenue" xKey="store" color="#8b5cf6" formatTooltip={v => `${v.toLocaleString()} MDL`} filename={`Топ_магазинов${yearLabel}`} />
+            <SingleMetricChart title="Топ магазинов по выручке" data={byStore} dataKey="revenue" xKey="store" color="#8b5cf6" formatTooltip={v => fmt(v)} filename={`Топ_магазинов${yearLabel}`} />
           </div>
         )}
 
@@ -904,8 +899,8 @@ export default function Dashboard() {
                         grossProfit: <td key="grossProfit" className="px-4 py-3 text-green-400">{fmt(row.grossProfit ?? 0)}</td>,
                         margin:      <td key="margin"      className="px-4 py-3 text-pink-400">{fmtPct(margin)}</td>,
                         avgCheck:    <td key="avgCheck"    className="px-4 py-3 text-yellow-400">{fmt(avgCheck)}</td>,
-                        quantity:    <td key="quantity"    className="px-4 py-3">{(row.quantity ?? 0).toLocaleString()}</td>,
-                        checks:      <td key="checks"      className="px-4 py-3 text-cyan-400">{(row.checks ?? 0).toLocaleString()}</td>,
+                        quantity:    <td key="quantity"    className="px-4 py-3">{fmtNum(row.quantity ?? 0)}</td>,
+                        checks:      <td key="checks"      className="px-4 py-3 text-cyan-400">{fmtNum(row.checks ?? 0)}</td>,
                       }
                       return (
                         <tr key={i} className="hover:bg-gray-700/30 transition">

@@ -49,15 +49,14 @@ function DownloadBtn({ onClick, title }: { onClick: () => void; title?: string }
 }
 
 // ─── fmt helpers ──────────────────────────────────────────────────
-function fmt(n: number) {
-  if (n >= 1_000_000) return `${(n/1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n/1_000).toFixed(0)}K`
-  return n.toFixed(0)
+function fmtNum(n: number) {
+  return Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ')
 }
+function fmt(n: number) { return fmtNum(n) }
 function pct(a: number, b: number) {
   if (b === 0) return '—'
   const diff = ((a - b) / Math.abs(b)) * 100
-  return (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%'
+  return (diff >= 0 ? '+' : '') + diff.toFixed(1).replace('.', ',') + ' %'
 }
 function pctColor(a: number, b: number) {
   if (b === 0) return 'text-gray-400'
@@ -69,7 +68,7 @@ const METRICS = [
   { key: 'grossProfit', label: 'Вал. прибыль',  format: (v: number) => `${fmt(v)} MDL` },
   { key: 'quantity',    label: 'Кол-во продаж', format: (v: number) => fmt(v) },
   { key: 'checks',      label: 'Кол-во чеков',  format: (v: number) => fmt(v) },
-  { key: 'margin',      label: 'Маржа',         format: (v: number) => `${v.toFixed(1)}%` },
+  { key: 'margin',      label: 'Маржа',         format: (v: number) => `${v.toFixed(1).replace('.', ',')} %` },
   { key: 'avgCheck',    label: 'Ср. чек',       format: (v: number) => `${fmt(v)} MDL` },
 ]
 
