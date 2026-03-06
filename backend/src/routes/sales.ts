@@ -210,6 +210,46 @@ router.get('/table', async (req: Request, res: Response) => {
   res.json({ data, total, page, pages: Math.ceil(total / limit) })
 })
 
+router.get('/by-store-trend', async (req: Request, res: Response) => {
+  const { year, stores } = req.query
+  const where: any = {}
+  if (year) where.year = parseInt(year as string)
+  if (stores) where.store = { in: (stores as string).split(',').filter(Boolean) }
+
+  const records = await prisma.saleRecord.findMany({
+    where,
+    select: { year: true, month: true, store: true, revenue: true, grossProfit: true, quantity: true, checks: true },
+    orderBy: [{ year: 'asc' }, { month: 'asc' }, { store: 'asc' }],
+  })
+
+  // Собираем уникальные периоды и магазины
+  const months = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
+  const periodsMap = new Map<string, any>()
+  const storesSet = new Set<string>()
+
+  records.forEach(r => {
+    const label = `${months[r.month-1]} ${r.year}`
+    storesSet.add(r.store)
+    if (!periodsMap.has(label)) periodsMap.set(label, { label })
+    const row = periodsMap.get(label)
+    const margin = r.revenue > 0 ? (r.grossProfit / r.revenue) * 100 : 0
+    const avgCheck = r.checks > 0 ? r.revenue / r.checks : 0
+    row[r.store] = {
+      revenue: r.revenue,
+      grossProfit: r.grossProfit,
+      quantity: r.quantity,
+      checks: r.checks,
+      margin: parseFloat(margin.toFixed(2)),
+      avgCheck: Math.round(avgCheck),
+    }
+  })
+
+  res.json({
+    periods: Array.from(periodsMap.values()),
+    stores: Array.from(storesSet).sort(),
+  })
+})
+
 router.get('/years', async (req: Request, res: Response) => {
   const data = await prisma.saleRecord.findMany({ select: { year: true }, distinct: ['year'], orderBy: { year: 'asc' } })
   res.json(data.map(d => d.year))

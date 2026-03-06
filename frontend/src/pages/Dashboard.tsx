@@ -524,6 +524,12 @@ export default function Dashboard() {
   const [extraFields, setExtraFields] = useState<{ key: string; name: string; color: string }[]>([])
 
   const [normAvgCheck, setNormAvgCheck] = useState(false)
+  const [storeTrend, setStoreTrend] = useState<{ periods: any[]; stores: string[] }>({ periods: [], stores: [] })
+  const [storeTrendSelectedStores, setStoreTrendSelectedStores] = useState<string[]>([])
+  const [storeTrendMetric, setStoreTrendMetric] = useState<string>('revenue')
+  const [storeTrendType, setStoreTrendType] = useState<ChartType>('line')
+  const [storeTrendShowDots, setStoreTrendShowDots] = useState(false)
+  const [storeTrendShowLabels, setStoreTrendShowLabels] = useState(false)
   const [flexChart, setFlexChart] = useState<{
     metrics: string[]; chartType: ChartType; showLabels: boolean; showDots: boolean; normalize: boolean; showAllHorizontal: boolean
   }>({ metrics: ['revenue'], chartType: 'line', showLabels: false, showDots: false, normalize: false, showAllHorizontal: false })
@@ -636,8 +642,19 @@ export default function Dashboard() {
       filterMarginMin, filterMarginMax, filterAvgCheckMin, filterAvgCheckMax,
       filterChecksMin, filterChecksMax, filterQuantityMin, filterQuantityMax])
 
+  const fetchStoreTrend = useCallback(async () => {
+    try {
+      const params: any = {}
+      if (selectedYear) params.year = selectedYear
+      // НЕ передаём stores — грузим все, фильтруем на фронте
+      const res = await axios.get(`${API}/sales/by-store-trend`, { params })
+      setStoreTrend(res.data)
+    } catch { console.error('store trend error') }
+  }, [selectedYear])
+
   useEffect(() => { fetchAll() }, [fetchAll])
   useEffect(() => { fetchTable() }, [fetchTable])
+  useEffect(() => { if (activeTab === 'stores') fetchStoreTrend() }, [fetchStoreTrend, activeTab])
 
   const handleSync = async () => {
     setSyncing(true)
@@ -749,7 +766,7 @@ export default function Dashboard() {
 
         <div className="flex items-center justify-between">
           <div className="flex gap-2">
-            {[{ id: 'overview', label: 'Тренды' }, { id: 'breakdown', label: 'Разбивка' }, { id: 'table', label: 'Таблица' }].map(tab => (
+            {[{ id: 'overview', label: 'Тренды' }, { id: 'breakdown', label: 'Разбивка' }, { id: 'stores', label: 'По магазинам' }, { id: 'table', label: 'Таблица' }].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === tab.id ? 'bg-blue-600' : 'bg-gray-800 hover:bg-gray-700'}`}>
                 {tab.label}
@@ -1026,6 +1043,179 @@ export default function Dashboard() {
             <SingleMetricChart title="Топ магазинов по выручке" data={byStore} dataKey="revenue" xKey="store" color="#8b5cf6" formatTooltip={v => fmt(v)} filename={`Топ_магазинов${yearLabel}`} />
           </div>
         )}
+
+        {/* По магазинам */}
+        {activeTab === 'stores' && (() => {
+          const STORE_METRICS = [
+            { key: 'revenue',     label: 'Выручка',        fmt: (v: number) => fmt(v) },
+            { key: 'grossProfit', label: 'Вал. прибыль',   fmt: (v: number) => fmt(v) },
+            { key: 'margin',      label: 'Маржа (%)',       fmt: (v: number) => fmtPct(v) },
+            { key: 'avgCheck',    label: 'Ср. чек',        fmt: (v: number) => fmt(v) },
+            { key: 'quantity',    label: 'Кол-во продаж',  fmt: (v: number) => fmtNum(v) },
+            { key: 'checks',      label: 'Кол-во чеков',   fmt: (v: number) => fmtNum(v) },
+          ]
+          const visibleStores = storeTrendSelectedStores.length > 0
+            ? storeTrendSelectedStores.filter(s => storeTrend.stores.includes(s))
+            : storeTrend.stores
+
+          // Строим данные: каждая точка = период, каждый магазин = отдельный ключ
+          const chartData = storeTrend.periods.map(row => {
+            const obj: any = { label: row.label }
+            visibleStores.forEach(s => {
+              obj[s] = row[s]?.[storeTrendMetric] ?? 0
+            })
+            return obj
+          })
+
+          const ttProps = { contentStyle: { background: '#1f2937', border: '1px solid #374151', fontSize: 13 }, labelStyle: { color: '#fff', fontSize: 13 }, itemStyle: { color: '#fff', fontSize: 13 } }
+          const metFmt = STORE_METRICS.find(m => m.key === storeTrendMetric)?.fmt || fmtNum
+          const xInterval = Math.floor(chartData.length / 10)
+
+          const renderStoreChart = () => {
+            if (storeTrendType === 'line') return (
+              <ResponsiveContainer width="100%" height={380}>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 11 }} interval={xInterval} />
+                  <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+                  <Tooltip formatter={(v: any) => metFmt(Number(v))} {...ttProps} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {visibleStores.map((s, i) => (
+                    <Line key={s} type="monotone" dataKey={s} name={s} stroke={COLORS[i % COLORS.length]} strokeWidth={2}
+                      dot={storeTrendShowDots ? { stroke: COLORS[i % COLORS.length], strokeWidth: 2, r: 3 } : false}>
+                      {storeTrendShowLabels && <LabelList dataKey={s} position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: COLORS[i % COLORS.length] }} />}
+                    </Line>
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            )
+            if (storeTrendType === 'bar-horizontal') {
+              // Для горизонтального — суммируем по всем периодам для каждого магазина
+              const totalData = visibleStores.map(s => ({
+                store: s,
+                value: storeTrend.periods.reduce((sum, row) => sum + (row[s]?.[storeTrendMetric] ?? 0), 0)
+              })).sort((a, b) => b.value - a.value)
+              return (
+                <ResponsiveContainer width="100%" height={100 + totalData.length * 45}>
+                  <BarChart data={totalData} layout="vertical" barCategoryGap={8}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+                    <YAxis type="category" dataKey="store" stroke="#9ca3af" tick={{ fontSize: 12 }} width={80} interval={0} />
+                    <Tooltip formatter={(v: any) => metFmt(Number(v))} {...ttProps} />
+                    <Bar dataKey="value" name={STORE_METRICS.find(m => m.key === storeTrendMetric)?.label || storeTrendMetric} radius={[0,6,6,0]}>
+                      {totalData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      {storeTrendShowLabels && <LabelList dataKey="value" position="right" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 11 }} />}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )
+            }
+            return (
+              <ResponsiveContainer width="100%" height={380}>
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 11 }} interval={xInterval} />
+                  <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+                  <Tooltip formatter={(v: any) => metFmt(Number(v))} {...ttProps} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {visibleStores.map((s, i) => (
+                    <Bar key={s} dataKey={s} name={s} fill={COLORS[i % COLORS.length]} radius={[4,4,0,0]}>
+                      {storeTrendShowLabels && <LabelList dataKey={s} position="top" formatter={(v: any) => fmtShort(v)} style={{ fontSize: 10, fill: COLORS[i % COLORS.length] }} />}
+                    </Bar>
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            )
+          }
+
+          return (
+            <div className="space-y-6">
+              {/* Панель управления */}
+              <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
+                <div className="flex flex-wrap gap-4">
+                  {/* Метрика */}
+                  <div>
+                    <p className="text-xs text-gray-400 mb-2">Показатель</p>
+                    <div className="flex flex-wrap gap-1">
+                      {STORE_METRICS.map(m => (
+                        <button key={m.key} onClick={() => setStoreTrendMetric(m.key)}
+                          className={`px-3 py-1.5 rounded text-sm transition ${storeTrendMetric === m.key ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Тип графика */}
+                  <div>
+                    <p className="text-xs text-gray-400 mb-2">Тип графика</p>
+                    <ChartTypeSwitcher value={storeTrendType} onChange={setStoreTrendType} />
+                  </div>
+                  {/* Опции */}
+                  <div className="flex items-end gap-3">
+                    <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                      <input type="checkbox" checked={storeTrendShowLabels} onChange={() => setStoreTrendShowLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
+                      Значения
+                    </label>
+                    {storeTrendType === 'line' && (
+                      <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <input type="checkbox" checked={storeTrendShowDots} onChange={() => setStoreTrendShowDots(v => !v)} className="accent-blue-500 w-4 h-4" />
+                        Точки
+                      </label>
+                    )}
+                  </div>
+                </div>
+                {/* Выбор магазинов */}
+                <div className="mt-4">
+                  <p className="text-xs text-gray-400 mb-2">Магазины <span className="text-gray-600">(все по умолчанию)</span></p>
+                  <div className="flex flex-wrap gap-1">
+                    <button onClick={() => setStoreTrendSelectedStores([])}
+                      className={`px-3 py-1 rounded text-xs transition ${storeTrendSelectedStores.length === 0 ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'}`}>
+                      Все
+                    </button>
+                    <span className="text-gray-600 text-xs mx-1 self-center">|</span>
+                    {storeTrend.stores.map((s, i) => {
+                      const active = storeTrendSelectedStores.includes(s)
+                      return (
+                        <button key={s} onClick={() => setStoreTrendSelectedStores(prev =>
+                          prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
+                        )}
+                          style={{
+                            background: active ? COLORS[i % COLORS.length] + '33' : '#374151',
+                            color: active ? COLORS[i % COLORS.length] : '#d1d5db',
+                            border: `1px solid ${active ? COLORS[i % COLORS.length] : 'transparent'}`
+                          }}
+                          className="px-3 py-1 rounded text-xs transition">
+                          {s}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* График */}
+              <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-semibold text-lg">
+                    {STORE_METRICS.find(m => m.key === storeTrendMetric)?.label} по магазинам
+                  </h3>
+                  <DownloadBtn onClick={() => {
+                    const rows = chartData.map(r => {
+                      const obj: any = { Период: r.label }
+                      visibleStores.forEach(s => { obj[s] = r[s] ?? 0 })
+                      return obj
+                    })
+                    xlsxDownload(rows, `По_магазинам_${storeTrendMetric}${yearLabel}`, 'По магазинам')
+                  }} title="Скачать" />
+                </div>
+                {storeTrend.periods.length === 0
+                  ? <p className="text-gray-500 text-center py-10">Нет данных</p>
+                  : renderStoreChart()
+                }
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Таблица */}
         {activeTab === 'table' && (
