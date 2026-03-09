@@ -775,7 +775,7 @@ export default function Dashboard() {
         )}
 
         {kpi && (
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
             {kpiCards.map((k, i) => (
               <div key={i} style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl p-4 border border-[var(--border)]">
                 <p className="text-[color:var(--text-muted)] text-xs">{k.label}</p>
@@ -1538,7 +1538,7 @@ export default function Dashboard() {
                       <StoreDropdown stores={allStores} selected={filterStores} onChange={s => { setFilterStores(s); setPage(1) }}  t={t}/>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
                     {[
                       { label: t('kpi_revenue'),       unit: 'MDL', min: filterRevenueMin,  setMin: setFilterRevenueMin,  max: filterRevenueMax,  setMax: setFilterRevenueMax },
                       { label: t('kpi_gross_profit'),  unit: 'MDL', min: filterGrossMin,    setMin: setFilterGrossMin,    max: filterGrossMax,    setMax: setFilterGrossMax },
