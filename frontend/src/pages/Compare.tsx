@@ -6,13 +6,14 @@ import {
 } from 'recharts'
 import * as XLSX from 'xlsx'
 import Navbar from '../components/Navbar'
+import { useLang } from '../LangContext'
 
 const API = import.meta.env.VITE_API_URL || '/api'
-const MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
+// MONTHS generated inside component
 const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316']
 
 // ─── Excel helpers ────────────────────────────────────────────────
-function xlsxDownload(rows: Record<string, any>[], filename: string, sheetName = 'Данные') {
+function xlsxDownload(rows: Record<string, any>[], filename: string, sheetName = 'Data') {
   if (!rows?.length) return
   const ws = XLSX.utils.json_to_sheet(rows)
   ws['!cols'] = Object.keys(rows[0]).map(k => ({
@@ -38,7 +39,7 @@ function xlsxDownloadMulti(sheets: { name: string; rows: Record<string, any>[] }
 
 function DownloadBtn({ onClick, title }: { onClick: () => void; title?: string }) {
   return (
-    <button onClick={onClick} title={title || 'Скачать Excel'}
+    <button onClick={onClick} title={title || 'Download Excel'}
       style={{ background: 'var(--bg-input)' }} className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-green-700 text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)] transition text-xs">
       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
@@ -63,14 +64,6 @@ function pctColor(a: number, b: number) {
   return a >= b ? 'text-green-400' : 'text-red-400'
 }
 
-const METRICS = [
-  { key: 'revenue',     label: 'Выручка',       format: (v: number) => `${fmt(v)} MDL` },
-  { key: 'grossProfit', label: 'Вал. прибыль',  format: (v: number) => `${fmt(v)} MDL` },
-  { key: 'quantity',    label: 'Кол-во продаж', format: (v: number) => fmt(v) },
-  { key: 'checks',      label: 'Кол-во чеков',  format: (v: number) => fmt(v) },
-  { key: 'margin',      label: 'Маржа',         format: (v: number) => `${v.toFixed(1).replace('.', ',')} %` },
-  { key: 'avgCheck',    label: 'Ср. чек',       format: (v: number) => `${fmt(v)} MDL` },
-]
 
 type ChartType = 'bar' | 'line' | 'bar-horizontal'
 
@@ -110,11 +103,13 @@ function buildStoreMonthChartData(storeMonthData: any, metrics: string[]) {
 
 // ─── ChartBlock ───────────────────────────────────────────────────
 function ChartBlock({
-  config, flatResults, storeMonthData, isStoreMonthMode, onRemove, onUpdate, chartIndex
+  config, flatResults, storeMonthData, isStoreMonthMode, onRemove, onUpdate, chartIndex, METRICS, t
 }: {
   config: ChartConfig; flatResults: any[]; storeMonthData: any
   isStoreMonthMode: boolean; onRemove: () => void
   onUpdate: (cfg: ChartConfig) => void; chartIndex: number
+  METRICS: { key: string; label: string; format: (v: number) => string }[]; t: (k: any) => string
+  MONTHS: string[]
 }) {
   const showLabels = config.showLabels ?? false
   const showDots   = config.showDots   ?? false
@@ -158,12 +153,12 @@ function ChartBlock({
 
   const handleDownload = () => {
     const metricLabels = config.metrics.map(k => METRICS.find(m => m.key === k)?.label || k).join('+')
-    const filename = `Сравнение_График${chartIndex + 1}_${metricLabels}`
+    const filename = `Compare_Chart${chartIndex + 1}_${metricLabels}`
 
     if (isStoreMonthMode && storeMonthData) {
       const data = buildStoreMonthChartData(storeMonthData, config.metrics)
       const rows = data.map((r: any) => {
-        const obj: any = { Период: r.key }
+        const obj: any = { [t('cmp_period')]: r.key }
         storeMonthData.stores.forEach((s: string) => {
           config.metrics.forEach((m: string) => {
             const met = METRICS.find(x => x.key === m)
@@ -172,18 +167,18 @@ function ChartBlock({
         })
         return obj
       })
-      xlsxDownload(rows, filename, `График ${chartIndex + 1}`)
+      xlsxDownload(rows, filename, `Chart ${chartIndex + 1}`)
     } else {
       const data = buildChartData(flatResults, config.metrics)
       const rows = data.map((r: any) => {
-        const obj: any = { Ключ: r.key }
+        const obj: any = { [t('cmp_period')]: r.key }
         config.metrics.forEach(m => {
           const met = METRICS.find(x => x.key === m)
           obj[met?.label || m] = r[m] ?? 0
         })
         return obj
       })
-      xlsxDownload(rows, filename, `График ${chartIndex + 1}`)
+      xlsxDownload(rows, filename, `Chart ${chartIndex + 1}`)
     }
   }
 
@@ -375,24 +370,24 @@ function ChartBlock({
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-1.5 text-xs text-[color:var(--text-secondary)] cursor-pointer">
             <input type="checkbox" checked={showLabels} onChange={() => onUpdate({ ...config, showLabels: !showLabels })} className="accent-blue-500 w-3.5 h-3.5" />
-            Значения
+            {t('ctrl_values')}
           </label>
           {config.chartType === 'line' && (
             <label className="flex items-center gap-1.5 text-xs text-[color:var(--text-secondary)] cursor-pointer">
               <input type="checkbox" checked={showDots} onChange={() => onUpdate({ ...config, showDots: !showDots })} className="accent-blue-500 w-3.5 h-3.5" />
-              Точки
+              {t('ctrl_dots')}
             </label>
           )}
           <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: normalize ? '#f59e0b' : '#9ca3af' }}>
             <input type="checkbox" checked={normalize} onChange={() => onUpdate({ ...config, normalize: !normalize })} className="accent-amber-500 w-3.5 h-3.5" />
-            Нормализация
+            {t('cmp_norm')}
           </label>
-          <button onClick={onRemove} className="text-[color:var(--text-faint)] hover:text-red-400 text-sm transition">✕ Удалить</button>
+          <button onClick={onRemove} className="text-[color:var(--text-faint)] hover:text-red-400 text-sm transition">{t('cmp_delete')}</button>
         </div>
       </div>
       {renderChart()}
       <div className="flex justify-end mt-3">
-        <DownloadBtn onClick={handleDownload} title={`Скачать данные графика ${chartIndex + 1}`} />
+        <DownloadBtn onClick={handleDownload} title={`${t('action_download_chart')} ${chartIndex + 1}`} />
       </div>
     </div>
   )
@@ -400,6 +395,23 @@ function ChartBlock({
 
 // ─── Compare ──────────────────────────────────────────────────────
 export default function Compare() {
+  const { t } = useLang()
+
+  const MONTHS: string[] = [
+  t('mon_full_1'), t('mon_full_2'), t('mon_full_3'), t('mon_full_4'),
+  t('mon_full_5'), t('mon_full_6'), t('mon_full_7'), t('mon_full_8'),
+  t('mon_full_9'), t('mon_full_10'), t('mon_full_11'), t('mon_full_12'),
+]
+
+const METRICS: { key: string; label: string; format: (v: number) => string }[] = [
+  { key: 'revenue',     label: t('kpi_revenue'),     format: (v) => fmt(v) },
+  { key: 'grossProfit', label: t('kpi_gross_profit'), format: (v) => fmt(v) },
+  { key: 'quantity',    label: t('kpi_quantity'),     format: (v) => fmt(v) },
+  { key: 'checks',      label: t('kpi_checks'),       format: (v) => fmt(v) },
+  { key: 'margin',      label: t('kpi_gross_profit'), format: (v) => v.toFixed(1).replace('.', ',') + ' %' },
+  { key: 'avgCheck',    label: t('kpi_avg_check'),    format: (v) => fmt(v) },
+]
+
   const user = JSON.parse(localStorage.getItem('user') || 'null')
   const handleLogout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login' }
 
@@ -454,7 +466,7 @@ export default function Compare() {
       const sheets = METRICS.filter(m => selectedMetrics.includes(m.key)).map(metric => ({
         name: metric.label,
         rows: storeMonthData.rows.map((row: any) => {
-          const obj: any = { Период: row.period }
+          const obj: any = { [t('cmp_period')]: row.period }
           storeMonthData.stores.forEach((s: string) => {
             const cell = row[s] || { revenue: 0, grossProfit: 0, quantity: 0, checks: 0 }
             let val = 0
@@ -469,11 +481,11 @@ export default function Compare() {
       xlsxDownloadMulti(sheets, baseFilename)
     } else {
       const rows = METRICS.filter(m => selectedMetrics.includes(m.key)).map(metric => {
-        const obj: any = { Показатель: metric.label }
+        const obj: any = { [t('cmp_metric')]: metric.label }
         flatResults.forEach((r: any) => { obj[r.key] = r[metric.key] ?? 0 })
         return obj
       })
-      xlsxDownload(rows, baseFilename, 'Сравнение')
+      xlsxDownload(rows, baseFilename, 'Compare')
     }
   }
 
@@ -484,9 +496,9 @@ export default function Compare() {
       if (isStoreMonthMode && storeMonthData) {
         const data = buildStoreMonthChartData(storeMonthData, cfg.metrics)
         return {
-          name: `График ${idx + 1}`,
+          name: `${t('map_chart')} ${idx + 1}`,
           rows: data.map((r: any) => {
-            const obj: any = { Период: r.key }
+            const obj: any = { [t('cmp_period')]: r.key }
             storeMonthData.stores.forEach((s: string) => {
               cfg.metrics.forEach((m: string) => {
                 const met = METRICS.find(x => x.key === m)
@@ -499,9 +511,9 @@ export default function Compare() {
       } else {
         const data = buildChartData(flatResults, cfg.metrics)
         return {
-          name: `График ${idx + 1} (${metricLabels})`.slice(0, 31),
+          name: `${t('map_chart')} ${idx + 1} (${metricLabels})`.slice(0, 31),
           rows: data.map((r: any) => {
-            const obj: any = { Ключ: r.key }
+            const obj: any = { [t('cmp_period')]: r.key }
             cfg.metrics.forEach(m => {
               const met = METRICS.find(x => x.key === m)
               obj[met?.label || m] = r[m] ?? 0
@@ -511,7 +523,7 @@ export default function Compare() {
         }
       }
     })
-    xlsxDownloadMulti(sheets, `${baseFilename}_Графики`)
+    xlsxDownloadMulti(sheets, `${baseFilename}_Charts`)
   }
 
   return (
@@ -519,23 +531,23 @@ export default function Compare() {
       <Navbar active="compare" userRole={user?.role} rightSlot={
         <>
           <span className="text-[color:var(--text-muted)] text-sm">{user?.name}</span>
-          <button onClick={handleLogout} style={{ background: 'var(--bg-input)' }} className="hover:bg-[var(--bg-hover)] px-3 py-1.5 rounded-lg text-sm transition">Выйти</button>
+          <button onClick={handleLogout} style={{ background: 'var(--bg-input)' }} className="hover:bg-[var(--bg-hover)] px-3 py-1.5 rounded-lg text-sm transition">{t('action_logout')}</button>
         </>
       } />
 
       <div className="p-6 space-y-6 max-w-screen-2xl mx-auto">
-        <h2 className="text-xl font-bold">Сравнение</h2>
+        <h2 className="text-xl font-bold">{t('cmp_title')}</h2>
 
         {/* Фильтры */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           <div style={{ background: 'var(--bg-card)' }} className="rounded-xl p-4 border border-[var(--border)]">
-            <h3 className="text-sm font-semibold mb-3 text-[color:var(--text-secondary)]">Режим сравнения</h3>
+            <h3 className="text-sm font-semibold mb-3 text-[color:var(--text-secondary)]">{t('filter_filters')}</h3>
             <div className="space-y-2">
               {[
-                { val: 'store',       label: 'По магазинам' },
-                { val: 'month',       label: 'По месяцам' },
-                { val: 'year',        label: 'По годам' },
-                { val: 'store-month', label: 'Магазин по месяцам' },
+                { val: 'store',       label: t('cmp_mode_stores') },
+                { val: 'month',       label: t('cmp_mode_months') },
+                { val: 'year',        label: t('cmp_mode_years') },
+                { val: 'store-month', label: t('cmp_mode_store_month') },
               ].map(m => (
                 <button key={m.val} onClick={() => setMode(m.val as any)}
                   className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${mode === m.val ? 'bg-blue-600' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)]'}`}>
@@ -546,7 +558,7 @@ export default function Compare() {
           </div>
 
           <div style={{ background: 'var(--bg-card)' }} className="rounded-xl p-4 border border-[var(--border)]">
-            <h3 className="text-sm font-semibold mb-3 text-[color:var(--text-secondary)]">Магазины</h3>
+            <h3 className="text-sm font-semibold mb-3 text-[color:var(--text-secondary)]">{t('cmp_stores')}</h3>
             <div className="space-y-1 max-h-52 overflow-y-auto">
               {allStores.map(s => (
                 <label key={s} className="flex items-center gap-2 text-sm cursor-pointer hover:text-[color:var(--text-primary)] text-[color:var(--text-secondary)] py-0.5">
@@ -559,7 +571,7 @@ export default function Compare() {
 
           <div style={{ background: 'var(--bg-card)' }} className="rounded-xl p-4 border border-[var(--border)]">
             <h3 className={`text-sm font-semibold mb-3 ${mode === 'year' ? 'text-[color:var(--text-faint)]' : 'text-[color:var(--text-secondary)]'}`}>
-              Месяцы {mode === 'year' && <span className="text-xs font-normal">(недоступно в режиме «По годам»)</span>}
+              {t('cmp_months')} {mode === 'year' && <span className="text-xs font-normal">({t('cmp_unavail_years')})</span>}
             </h3>
             <div className="grid grid-cols-3 gap-1 mb-4">
               {MONTHS.map((m, i) => (
@@ -571,7 +583,7 @@ export default function Compare() {
                 </button>
               ))}
             </div>
-            <h3 className="text-sm font-semibold mb-2 text-[color:var(--text-secondary)]">Годы</h3>
+            <h3 className="text-sm font-semibold mb-2 text-[color:var(--text-secondary)]">{t('cmp_years')}</h3>
             <div className="flex flex-wrap gap-1">
               {allYears.map(y => (
                 <button key={y} onClick={() => toggleItem(selectedYears, setSelectedYears, y)}
@@ -583,7 +595,7 @@ export default function Compare() {
           </div>
 
           <div style={{ background: 'var(--bg-card)' }} className="rounded-xl p-4 border border-[var(--border)]">
-            <h3 className="text-sm font-semibold mb-3 text-[color:var(--text-secondary)]">Показатели</h3>
+            <h3 className="text-sm font-semibold mb-3 text-[color:var(--text-secondary)]">{t('cmp_metrics')}</h3>
             <div className="space-y-2">
               {METRICS.map(m => (
                 <label key={m.key} className="flex items-center gap-2 text-sm cursor-pointer hover:text-[color:var(--text-primary)] text-[color:var(--text-secondary)]">
@@ -594,13 +606,13 @@ export default function Compare() {
             </div>
             <button onClick={runCompare} disabled={loading}
               className="w-full mt-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 py-2 rounded-lg text-sm font-medium transition">
-              {loading ? 'Загрузка...' : '▶ Сравнить'}
+              {loading ? t('loading') : `▶ ${t('action_compare')}`}
             </button>
             {rawFlatResults.length >= 2 && (
               <button onClick={() => setBaseIndex(i => i === 0 ? 1 : 0)}
-                title="Поменять базу сравнения"
+                title={t('cmp_base')}
                 style={{ background: 'var(--bg-input)' }} className="w-full mt-2 flex items-center justify-center gap-2 hover:bg-amber-700 py-2 rounded-lg text-sm transition text-[color:var(--text-secondary)] hover:text-[color:var(--text-primary)]">
-                ⇄ База: <span className="font-medium text-[color:var(--text-primary)]">{flatResults[0]?.key}</span>
+                ⇄ {t('cmp_base_label')} <span className="font-medium text-[color:var(--text-primary)]">{flatResults[0]?.key}</span>
                 <span className="text-[color:var(--text-faint)]">→</span>
                 <span className="text-amber-400">{flatResults[flatResults.length - 1]?.key}</span>
               </button>
@@ -616,7 +628,7 @@ export default function Compare() {
                 <table className="w-full text-sm">
                   <thead style={{ background: 'var(--bg-input)' }} className="/50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-[color:var(--text-muted)] font-medium">Показатель</th>
+                      <th className="px-4 py-3 text-left text-[color:var(--text-muted)] font-medium">{t('cmp_metric')}</th>
                       {flatResults.map((r: any, i: number) => (
                         <th key={i} className="px-4 py-3 text-left font-medium" style={{ color: COLORS[i % COLORS.length] }}>{r.key}</th>
                       ))}
@@ -641,7 +653,7 @@ export default function Compare() {
                   </tbody>
                 </table>
                 <div className="flex justify-end p-3 border-t border-[var(--border)]">
-                  <DownloadBtn onClick={downloadTable} title="Скачать таблицу сравнения" />
+                  <DownloadBtn onClick={downloadTable} title={t('action_download')} />
                 </div>
               </div>
             )}
@@ -652,8 +664,8 @@ export default function Compare() {
                 <table className="w-full text-sm">
                   <thead style={{ background: 'var(--bg-input)' }} className="/50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-[color:var(--text-muted)] font-medium">Период</th>
-                      <th className="px-4 py-3 text-left text-[color:var(--text-muted)] font-medium">Показатель</th>
+                      <th className="px-4 py-3 text-left text-[color:var(--text-muted)] font-medium">{t('cmp_period')}</th>
+                      <th className="px-4 py-3 text-left text-[color:var(--text-muted)] font-medium">{t('cmp_metric')}</th>
                       {storeMonthData.stores.map((s: string, i: number) => (
                         <th key={i} className="px-4 py-3 text-left font-medium" style={{ color: COLORS[i % COLORS.length] }}>{s}</th>
                       ))}
@@ -693,22 +705,22 @@ export default function Compare() {
                   </tbody>
                 </table>
                 <div className="flex justify-end p-3 border-t border-[var(--border)]">
-                  <DownloadBtn onClick={downloadTable} title="Скачать таблицу сравнения" />
+                  <DownloadBtn onClick={downloadTable} title={t('action_download')} />
                 </div>
               </div>
             )}
 
             {/* Графики */}
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-[color:var(--text-secondary)]">Графики</h3>
+              <h3 className="font-semibold text-[color:var(--text-secondary)]">{t('map_charts')}</h3>
               <div className="flex items-center gap-2">
                 {charts.length > 0 && (
-                  <button onClick={downloadAllCharts} title="Скачать все графики"
+                  <button onClick={downloadAllCharts} title={t('cmp_download_charts')}
                     style={{ background: 'var(--bg-card)' }} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-green-700 text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)] transition text-sm border border-[var(--border)]">
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
                     </svg>
-                    Скачать все графики
+                    {t('cmp_download_charts')}
                   </button>
                 )}
                 <button
@@ -722,7 +734,7 @@ export default function Compare() {
                   }])}
                   style={{ background: 'var(--bg-input)' }} className="hover:bg-[var(--bg-hover)] px-4 py-2 rounded-lg text-sm transition"
                 >
-                  + Добавить график
+                  {t('cmp_add_chart')}
                 </button>
               </div>
             </div>
@@ -737,12 +749,15 @@ export default function Compare() {
                 onRemove={() => setCharts(prev => prev.filter(c => c.id !== cfg.id))}
                 onUpdate={(updated) => setCharts(prev => prev.map(c => c.id === cfg.id ? updated : c))}
                 chartIndex={idx}
+                METRICS={METRICS}
+                t={t}
+                MONTHS={MONTHS}
               />
             ))}
 
             {charts.length === 0 && (
               <div style={{ background: 'var(--bg-card)' }} className="/50 rounded-xl p-6 border border-dashed border-[var(--border)] text-center text-[color:var(--text-faint)] text-sm">
-                Нажмите <span className="text-[color:var(--text-primary)]">+ Добавить график</span> чтобы визуализировать данные
+                Нажмите <span className="text-[color:var(--text-primary)]">{t('cmp_add_chart')}</span> {t('visualize')}
               </div>
             )}
           </>
@@ -750,7 +765,7 @@ export default function Compare() {
 
         {!hasResults && !loading && (
           <div style={{ background: 'var(--bg-card)' }} className="rounded-xl p-10 border border-[var(--border)] text-center text-[color:var(--text-muted)]">
-            Выберите параметры и нажмите <span className="text-[color:var(--text-primary)] font-medium">▶ Сравнить</span>
+            {t('cmp_select_params')} <span className="text-[color:var(--text-primary)] font-medium">▶ {t('action_compare')}Сравнить</span>
           </div>
         )}
       </div>

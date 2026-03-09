@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import Navbar from '../components/Navbar'
+import { useLang } from '../LangContext'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
@@ -13,6 +14,7 @@ interface NewField { label: string; type: 'fact' | 'calculated'; dataType: strin
 const emptyNewField = (): NewField => ({ label: '', type: 'fact', dataType: 'number', formula: '', sourceColumn: '' })
 
 export default function MappingSettings() {
+  const { t } = useLang()
   const user = JSON.parse(localStorage.getItem('user') || 'null')
   const handleLogout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login' }
   const [systemFields, setSystemFields] = useState<SystemField[]>([])
@@ -50,7 +52,7 @@ export default function MappingSettings() {
     try {
       const res = await axios.get(`${API}/mapping/source-columns`)
       setSourceColumns(res.data)
-    } catch (e: any) { setMessage('Ошибка загрузки колонок: ' + e.message) }
+    } catch (e: any) { setMessage('Error loading columns: ' + e.message) }
     setLoadingCols(false)
   }
 
@@ -63,15 +65,15 @@ export default function MappingSettings() {
     try {
       const validMappings = mappings.filter(m => m.sourceColumn && m.systemFieldKey)
       await axios.post(`${API}/mapping`, { mappings: validMappings })
-      setMessage('Маппинг сохранён успешно!')
-    } catch (e: any) { setMessage('Ошибка: ' + e.message) }
+      setMessage(t('map_saved'))
+    } catch (e: any) { setMessage('Error: ' + e.message) }
     setSaving(false)
   }
 
   const addCustomField = async () => {
-    if (!newField.label) return setMessage('Укажите название поля')
-    if (newField.type === 'calculated' && !newField.formula) return setMessage('Укажите формулу')
-    if (newField.type === 'fact' && !newField.sourceColumn) return setMessage('Укажите колонку источника')
+    if (!newField.label) return setMessage((t as any)('map_field_col'))
+    if (newField.type === 'calculated' && !newField.formula) return setMessage(t('map_formula'))
+    if (newField.type === 'fact' && !newField.sourceColumn) return setMessage(t('map_source_col'))
     setAddingField(true); setMessage('')
     try {
       const fieldRes = await axios.post(`${API}/mapping/custom-field`, {
@@ -87,44 +89,44 @@ export default function MappingSettings() {
       setNewField(emptyNewField())
       setShowAddField(false)
       await loadData()
-      setMessage('Поле добавлено!')
-    } catch (e: any) { setMessage('Ошибка: ' + e.message) }
+      setMessage(t('map_added'))
+    } catch (e: any) { setMessage('Error: ' + e.message) }
     setAddingField(false)
   }
 
   const deleteCustomField = async (key: string) => {
-    if (!confirm('Удалить поле?')) return
+    if (!confirm(t('map_delete'))) return
     try {
       await axios.delete(`${API}/mapping/custom-field/${key}`)
       await loadData()
-      setMessage('Поле удалено')
-    } catch (e: any) { setMessage('Ошибка: ' + e.message) }
+      setMessage(t('map_delete'))
+    } catch (e: any) { setMessage('Error: ' + e.message) }
   }
 
   const factFields = systemFields.filter(f => f.type === 'fact')
   const calcFields = systemFields.filter(f => f.type === 'calculated')
   const allFieldKeys = systemFields.map(f => f.key)
 
-  if (loading) return <div className="min-h-screen bg-[var(--bg-base)] text-[color:var(--text-primary)] flex items-center justify-center">Загрузка...</div>
+  if (loading) return <div className="min-h-screen bg-[var(--bg-base)] text-[color:var(--text-primary)] flex items-center justify-center">{t('loading')}</div>
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)] text-[color:var(--text-primary)]">
       <Navbar active="settings" userRole={user?.role} rightSlot={
         <>
           <span className="text-[color:var(--text-muted)] text-sm">{user?.name}</span>
-          <button onClick={handleLogout} style={{ background: 'var(--bg-input)' }} className="hover:bg-[var(--bg-hover)] px-3 py-1.5 rounded-lg text-sm transition">Выйти</button>
+          <button onClick={handleLogout} style={{ background: 'var(--bg-input)' }} className="hover:bg-[var(--bg-hover)] px-3 py-1.5 rounded-lg text-sm transition">{t('action_logout')}</button>
         </>
       } />
       <div className="p-6 max-w-4xl mx-auto space-y-6">
-        <h2 className="text-xl font-bold">⚙️ Настройка маппинга полей</h2>
+        <h2 className="text-xl font-bold">{`⚙️ ${t('map_title')}`}</h2>
 
         {/* Колонки источника */}
         <div style={{ background: 'var(--bg-card)' }} className="rounded-xl p-5 border border-[var(--border)]">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold">Колонки из Google Sheets</h3>
+            <h3 className="font-semibold">{t('map_sheets_cols')}</h3>
             <button onClick={loadSourceColumns} disabled={loadingCols}
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm transition">
-              {loadingCols ? 'Загрузка...' : '🔄 Загрузить колонки из источника'}
+              {loadingCols ? t('loading') : `🔄 ${t('map_source_cols')}`}
             </button>
           </div>
           {sourceColumns.length > 0 && (
@@ -139,71 +141,71 @@ export default function MappingSettings() {
         {/* Таблица маппинга */}
         <div style={{ background: 'var(--bg-card)' }} className="rounded-xl p-5 border border-[var(--border)]">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Маппинг полей источника → системные поля</h3>
+            <h3 className="font-semibold">{t('map_subtitle')}</h3>
             <button onClick={() => setShowAddField(v => !v)}
               style={{ background: 'var(--bg-input)' }} className="hover:bg-[var(--bg-hover)] px-3 py-1.5 rounded-lg text-sm transition">
-              {showAddField ? '✕ Отмена' : '+ Новое поле'}
+              {showAddField ? `✕ ${t('filter_clear')}` : t('map_add_field')}
             </button>
           </div>
-          <p className="text-[color:var(--text-muted)] text-sm mb-4">Укажите какая колонка из источника соответствует каждому системному полю</p>
+          <p className="text-[color:var(--text-muted)] text-sm mb-4">{t('map_subtitle')}</p>
 
           {showAddField && (
           <div style={{ background: 'var(--bg-input)' }} className="/30 rounded-xl p-4 border border-blue-500/30 mb-4">
-            <h3 className="font-semibold mb-4 text-sm">➕ Новое поле</h3>
+            <h3 className="font-semibold mb-4 text-sm">{t('map_add_field')}</h3>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-[color:var(--text-muted)] mb-1 block">Название поля</label>
+                  <label className="text-xs text-[color:var(--text-muted)] mb-1 block">{(t as any)('map_field_col')}</label>
                   <input type="text" value={newField.label} onChange={e => setNewField(p => ({ ...p, label: e.target.value }))}
-                    placeholder="Например: Себестоимость"
+                    placeholder={t('map_placeholder_name')}
                     style={{ background: 'var(--bg-input)' }} className="w-full text-[color:var(--text-primary)] text-sm px-3 py-2 rounded-lg border border-[var(--border)] outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="text-xs text-[color:var(--text-muted)] mb-1 block">Тип поля</label>
+                  <label className="text-xs text-[color:var(--text-muted)] mb-1 block">{t('map_field_type')}</label>
                   <select value={newField.type} onChange={e => setNewField(p => ({ ...p, type: e.target.value as 'fact' | 'calculated' }))}
                     style={{ background: 'var(--bg-input)' }} className="w-full text-[color:var(--text-primary)] text-sm px-3 py-2 rounded-lg border border-[var(--border)]">
-                    <option value="fact">Факт (из источника)</option>
-                    <option value="calculated">Расчётное (формула)</option>
+                    <option value="fact">{`${t('map_if_fact')} (${t('map_source_col')})`}</option>
+                    <option value="calculated">{`${t('map_calc')} (${t('map_formula')})`}</option>
                   </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-[color:var(--text-muted)] mb-1 block">Тип данных</label>
+                  <label className="text-xs text-[color:var(--text-muted)] mb-1 block">{t('map_data_type')}</label>
                   <select value={newField.dataType} onChange={e => setNewField(p => ({ ...p, dataType: e.target.value }))}
                     style={{ background: 'var(--bg-input)' }} className="w-full text-[color:var(--text-primary)] text-sm px-3 py-2 rounded-lg border border-[var(--border)]">
-                    <option value="number">Число (дробное)</option>
-                    <option value="integer">Целое число</option>
-                    <option value="percent">Процент</option>
+                    <option value="number">{`${t('map_integer')} / ${t('map_data_type')}`}</option>
+                    <option value="integer">{t('map_integer')}</option>
+                    <option value="percent">{t('map_percent')}</option>
                   </select>
                 </div>
                 {newField.type === 'fact' ? (
                   <div>
-                    <label className="text-xs text-[color:var(--text-muted)] mb-1 block">Колонка в источнике</label>
+                    <label className="text-xs text-[color:var(--text-muted)] mb-1 block">{t('map_source_col')}</label>
                     {sourceColumns.length > 0 ? (
                       <select value={newField.sourceColumn} onChange={e => setNewField(p => ({ ...p, sourceColumn: e.target.value }))}
                         style={{ background: 'var(--bg-input)' }} className="w-full text-[color:var(--text-primary)] text-sm px-3 py-2 rounded-lg border border-[var(--border)]">
-                        <option value="">— выберите колонку —</option>
+                        <option value="">— {t('map_select')} —</option>
                         {sourceColumns.map(col => <option key={col} value={col}>{col}</option>)}
                       </select>
                     ) : (
                       <input type="text" value={newField.sourceColumn} onChange={e => setNewField(p => ({ ...p, sourceColumn: e.target.value }))}
-                        placeholder="Название колонки..."
+                        placeholder={t('map_source_col')}
                         style={{ background: 'var(--bg-input)' }} className="w-full text-[color:var(--text-primary)] text-sm px-3 py-2 rounded-lg border border-[var(--border)] outline-none focus:ring-2 focus:ring-blue-500" />
                     )}
                   </div>
                 ) : (
                   <div>
-                    <label className="text-xs text-[color:var(--text-muted)] mb-1 block">Формула</label>
+                    <label className="text-xs text-[color:var(--text-muted)] mb-1 block">{t('map_formula')}</label>
                     <input type="text" value={newField.formula} onChange={e => setNewField(p => ({ ...p, formula: e.target.value }))}
-                      placeholder="Например: revenue * 0.3"
+                      placeholder={t('map_field_key')}
                       style={{ background: 'var(--bg-input)' }} className="w-full text-[color:var(--text-primary)] text-sm px-3 py-2 rounded-lg border border-[var(--border)] outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
                   </div>
                 )}
               </div>
               {newField.type === 'calculated' && (
                 <div style={{ background: 'var(--bg-input)' }} className="/30 rounded-lg p-3">
-                  <p className="text-xs text-[color:var(--text-muted)] mb-1">Доступные поля для формулы:</p>
+                  <p className="text-xs text-[color:var(--text-muted)] mb-1">{t('map_available_fields')}</p>
                   <div className="flex flex-wrap gap-1">
                     {allFieldKeys.map(k => (
                       <span key={k} style={{ background: 'var(--bg-input)' }} className="px-2 py-0.5 rounded text-xs font-mono text-blue-300">{k}</span>
@@ -213,7 +215,7 @@ export default function MappingSettings() {
               )}
               <button onClick={addCustomField} disabled={addingField}
                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 py-2 rounded-lg text-sm font-medium transition">
-                {addingField ? 'Добавление...' : '✓ Добавить поле'}
+                {addingField ? t('map_adding') : `✓ ${t('map_add_btn')}`}
               </button>
             </div>
           </div>
@@ -221,7 +223,7 @@ export default function MappingSettings() {
 
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-4 text-xs text-[color:var(--text-faint)] uppercase px-1">
-              <span>Системное поле</span><span>Тип</span><span>Колонка в источнике</span>
+              <span>{t('map_system_fields')}</span><span>{t('map_type_col')}</span><span>{t('map_source_col')}</span>
             </div>
 
             {/* Фактические поля */}
@@ -236,16 +238,16 @@ export default function MappingSettings() {
                       <button onClick={() => deleteCustomField(sysField.key)} className="text-red-400 hover:text-red-300 text-xs">✕</button>
                     )}
                   </div>
-                  <span className="text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full w-fit">факт</span>
+                  <span className="text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full w-fit">{t('map_fact')}кт</span>
                   {sourceColumns.length > 0 ? (
                     <select value={m.sourceColumn} onChange={e => updateMapping(m.systemFieldKey, e.target.value)}
                       className="t-bg-hover text-[color:var(--text-primary)] text-sm px-3 py-1.5 rounded-lg border border-gray-500">
-                      <option value="">— не выбрано —</option>
+                      <option value="">— {t('no_data')} —</option>
                       {sourceColumns.map(col => <option key={col} value={col}>{col}</option>)}
                     </select>
                   ) : (
                     <input type="text" value={m.sourceColumn} onChange={e => updateMapping(m.systemFieldKey, e.target.value)}
-                      placeholder="Название колонки..."
+                      placeholder={t('map_source_col')}
                       className="t-bg-hover text-[color:var(--text-primary)] text-sm px-3 py-1.5 rounded-lg border border-gray-500 outline-none focus:ring-2 focus:ring-blue-500" />
                   )}
                 </div>
@@ -261,7 +263,7 @@ export default function MappingSettings() {
                     <button onClick={() => deleteCustomField(field.key)} className="text-red-400 hover:text-red-300 text-xs">✕</button>
                   )}
                 </div>
-                <span className="text-xs text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded-full w-fit">расчёт</span>
+                <span className="text-xs text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded-full w-fit">{t('map_calc')}</span>
                 <span className="text-xs text-[color:var(--text-faint)] font-mono">{field.formula}</span>
               </div>
             ))}
@@ -271,55 +273,55 @@ export default function MappingSettings() {
         {/* Форма добавления нового поля */}
         {showAddField && (
           <div style={{ background: 'var(--bg-card)' }} className="rounded-xl p-5 border border-blue-500/30">
-            <h3 className="font-semibold mb-4">➕ Новое поле</h3>
+            <h3 className="font-semibold mb-4">{t('map_add_field')}</h3>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-[color:var(--text-muted)] mb-1 block">Название поля</label>
+                  <label className="text-xs text-[color:var(--text-muted)] mb-1 block">{(t as any)('map_field_col')}</label>
                   <input type="text" value={newField.label} onChange={e => setNewField(p => ({ ...p, label: e.target.value }))}
-                    placeholder="Например: Себестоимость"
+                    placeholder={t('map_placeholder_name')}
                     style={{ background: 'var(--bg-input)' }} className="w-full text-[color:var(--text-primary)] text-sm px-3 py-2 rounded-lg border border-[var(--border)] outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="text-xs text-[color:var(--text-muted)] mb-1 block">Тип поля</label>
+                  <label className="text-xs text-[color:var(--text-muted)] mb-1 block">{t('map_field_type')}</label>
                   <select value={newField.type} onChange={e => setNewField(p => ({ ...p, type: e.target.value as 'fact' | 'calculated' }))}
                     style={{ background: 'var(--bg-input)' }} className="w-full text-[color:var(--text-primary)] text-sm px-3 py-2 rounded-lg border border-[var(--border)]">
-                    <option value="fact">Факт (из источника)</option>
-                    <option value="calculated">Расчётное (формула)</option>
+                    <option value="fact">{`${t('map_if_fact')} (${t('map_source_col')})`}</option>
+                    <option value="calculated">{`${t('map_calc')} (${t('map_formula')})`}</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-[color:var(--text-muted)] mb-1 block">Тип данных</label>
+                  <label className="text-xs text-[color:var(--text-muted)] mb-1 block">{t('map_data_type')}</label>
                   <select value={newField.dataType} onChange={e => setNewField(p => ({ ...p, dataType: e.target.value }))}
                     style={{ background: 'var(--bg-input)' }} className="w-full text-[color:var(--text-primary)] text-sm px-3 py-2 rounded-lg border border-[var(--border)]">
-                    <option value="number">Число (дробное)</option>
-                    <option value="integer">Целое число</option>
-                    <option value="percent">Процент</option>
+                    <option value="number">{`${t('map_integer')} / ${t('map_data_type')}`}</option>
+                    <option value="integer">{t('map_integer')}</option>
+                    <option value="percent">{t('map_percent')}</option>
                   </select>
                 </div>
                 {newField.type === 'fact' ? (
                   <div>
-                    <label className="text-xs text-[color:var(--text-muted)] mb-1 block">Колонка в источнике</label>
+                    <label className="text-xs text-[color:var(--text-muted)] mb-1 block">{t('map_source_col')}</label>
                     {sourceColumns.length > 0 ? (
                       <select value={newField.sourceColumn} onChange={e => setNewField(p => ({ ...p, sourceColumn: e.target.value }))}
                         style={{ background: 'var(--bg-input)' }} className="w-full text-[color:var(--text-primary)] text-sm px-3 py-2 rounded-lg border border-[var(--border)]">
-                        <option value="">— выберите колонку —</option>
+                        <option value="">— {t('map_select')} —</option>
                         {sourceColumns.map(col => <option key={col} value={col}>{col}</option>)}
                       </select>
                     ) : (
                       <input type="text" value={newField.sourceColumn} onChange={e => setNewField(p => ({ ...p, sourceColumn: e.target.value }))}
-                        placeholder="Название колонки..."
+                        placeholder={t('map_source_col')}
                         style={{ background: 'var(--bg-input)' }} className="w-full text-[color:var(--text-primary)] text-sm px-3 py-2 rounded-lg border border-[var(--border)] outline-none focus:ring-2 focus:ring-blue-500" />
                     )}
                   </div>
                 ) : (
                   <div>
-                    <label className="text-xs text-[color:var(--text-muted)] mb-1 block">Формула</label>
+                    <label className="text-xs text-[color:var(--text-muted)] mb-1 block">{t('map_formula')}</label>
                     <input type="text" value={newField.formula} onChange={e => setNewField(p => ({ ...p, formula: e.target.value }))}
-                      placeholder="Например: revenue * 0.3"
+                      placeholder={t('map_field_key')}
                       style={{ background: 'var(--bg-input)' }} className="w-full text-[color:var(--text-primary)] text-sm px-3 py-2 rounded-lg border border-[var(--border)] outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
                   </div>
                 )}
@@ -327,7 +329,7 @@ export default function MappingSettings() {
 
               {newField.type === 'calculated' && (
                 <div style={{ background: 'var(--bg-input)' }} className="/30 rounded-lg p-3">
-                  <p className="text-xs text-[color:var(--text-muted)] mb-1">Доступные поля для формулы:</p>
+                  <p className="text-xs text-[color:var(--text-muted)] mb-1">{t('map_available_fields')}</p>
                   <div className="flex flex-wrap gap-1">
                     {allFieldKeys.filter(k => !k.startsWith('custom_') || systemFields.find(f => f.key === k)?.type === 'fact').map(k => (
                       <span key={k} style={{ background: 'var(--bg-input)' }} className="px-2 py-0.5 rounded text-xs font-mono text-blue-300">{k}</span>
@@ -338,24 +340,24 @@ export default function MappingSettings() {
 
               <button onClick={addCustomField} disabled={addingField}
                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 py-2 rounded-lg text-sm font-medium transition">
-                {addingField ? 'Добавление...' : '✓ Добавить поле'}
+                {addingField ? t('map_adding') : `✓ ${t('map_add_btn')}`}
               </button>
             </div>
           </div>
         )}
 
         {message && (
-          <div className={`p-3 rounded-lg text-sm ${message.includes('Ошибка') || message.includes('Укажите') ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
+          <div className={`p-3 rounded-lg text-sm ${message.includes('Error') || message.startsWith('Error') || message.startsWith((t as any)('map_field_col').slice(0,3)) ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
             {message}
-            {message.includes('успешно') && (
-              <a href="/mapping" className="ml-3 underline font-medium">Перейти в Маппинг →</a>
+            {message.includes(t('map_saved').slice(0, 6)) && (
+              <a href="/mapping" className="ml-3 underline font-medium">{t('map_go_mapping')} →</a>
             )}
           </div>
         )}
 
         <button onClick={saveMapping} disabled={saving}
           className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 py-3 rounded-xl font-medium transition">
-          {saving ? 'Сохранение...' : 'Сохранить маппинг'}
+          {saving ? t('loading') : t('map_save')}
         </button>
       </div>
     </div>

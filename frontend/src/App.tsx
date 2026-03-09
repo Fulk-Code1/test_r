@@ -4,6 +4,7 @@ import MappingSettings from './pages/MappingSettings'
 import Compare from './pages/Compare'
 import Login from './pages/Login'
 import { ThemeProvider } from './ThemeContext'
+import { LangProvider } from './LangContext'
 
 function getUser() {
   try { return JSON.parse(localStorage.getItem('user') || 'null') } catch { return null }
@@ -24,14 +25,16 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <ThemeProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
-        <Route path="/mapping/settings" element={<RequireAuth><RequireAdmin><MappingSettings /></RequireAdmin></RequireAuth>} />
-        <Route path="/compare" element={<RequireAuth><Compare /></RequireAuth>} />
-        <Route path="/mapping" element={<Navigate to="/" />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+      <LangProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
+          <Route path="/mapping/settings" element={<RequireAuth><RequireAdmin><MappingSettings /></RequireAdmin></RequireAuth>} />
+          <Route path="/compare" element={<RequireAuth><Compare /></RequireAuth>} />
+          <Route path="/mapping" element={<Navigate to="/" />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </LangProvider>
     </ThemeProvider>
   )
 }

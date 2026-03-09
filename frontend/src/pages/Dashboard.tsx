@@ -6,23 +6,24 @@ import {
 } from 'recharts'
 import * as XLSX from 'xlsx'
 import Navbar from '../components/Navbar'
+import { useLang } from '../LangContext'
 import SyncNotification from '../components/SyncNotification'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316', '#14b8a6', '#a855f7']
-const MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
-const MONTHS_FULL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']
+// MONTHS now generated from translations via useLang hook inside component
+// MONTHS_FULL now generated from translations
 const EXCLUDED_FROM_EXTRA = new Set(['revenue', 'quantity', 'checks', 'avgCheck', 'grossProfit', 'margin', 'label', 'year', 'month', 'storeCount', 'avgQuantityPerStore', 'avgPrice'])
 
 // ─── Flex chart metrics ──────────────────────────────────────────
 const FLEX_METRICS = [
-  { key: 'revenue',            name: 'Выручка',              color: '#3b82f6', isPercent: false },
-  { key: 'grossProfit',        name: 'Вал. прибыль',         color: '#10b981', isPercent: false },
-  { key: 'quantity',           name: 'Кол-во продаж',        color: '#8b5cf6', isPercent: false, isSecondary: true },
-  { key: 'checks',             name: 'Кол-во чеков',         color: '#06b6d4', isPercent: false, isSecondary: true },
-  { key: 'margin',             name: 'Маржа (%)',             color: '#ec4899', isPercent: true  },
-  { key: 'avgCheck',           name: 'Ср. чек',              color: '#f59e0b', isPercent: false },
-  { key: 'avgPrice',           name: 'Ср. цена',             color: '#f97316', isPercent: false },
+  { key: 'revenue',            nameKey: 'metric_revenue' as const,    color: '#3b82f6', isPercent: false },
+  { key: 'grossProfit',        nameKey: 'metric_gross' as const,      color: '#10b981', isPercent: false },
+  { key: 'quantity',           nameKey: 'metric_quantity' as const,   color: '#8b5cf6', isPercent: false, isSecondary: true },
+  { key: 'checks',             nameKey: 'metric_checks' as const,     color: '#06b6d4', isPercent: false, isSecondary: true },
+  { key: 'margin',             nameKey: 'metric_margin' as const,     color: '#ec4899', isPercent: true  },
+  { key: 'avgCheck',           nameKey: 'metric_avg_check' as const,  color: '#f59e0b', isPercent: false },
+  { key: 'avgPrice',           nameKey: 'metric_avg_price' as const,  color: '#f97316', isPercent: false },
 ]
 
 // ─── Excel helpers ───────────────────────────────────────────────
@@ -47,7 +48,7 @@ function xlsxDownloadMulti(sheets: { name: string; rows: Record<string, any>[] }
 
 function DownloadBtn({ onClick, title }: { onClick: () => void; title?: string }) {
   return (
-    <button onClick={onClick} title={title || 'Скачать Excel'}
+    <button onClick={onClick} title={title || 'Download'}
       style={{ background: 'var(--bg-input)' }} className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-green-700 text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)] transition text-xs">
       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
@@ -68,13 +69,13 @@ type ChartType = 'line' | 'bar' | 'bar-horizontal'
 const ttStyle = { background: 'var(--bg-card)', border: '1px solid var(--border)', fontSize: 13 }
 const ttProps = { contentStyle: ttStyle, labelStyle: { color: 'var(--text-primary)', fontSize: 13 }, itemStyle: { color: 'var(--text-primary)', fontSize: 13 } }
 
-function ChartTypeSwitcher({ value, onChange }: { value: ChartType; onChange: (t: ChartType) => void }) {
+function ChartTypeSwitcher({ value, onChange, t }: { value: ChartType; onChange: (t: ChartType) => void; t: (k: any) => string }) {
   return (
     <div className="flex gap-1">
-      {(['line','bar','bar-horizontal'] as ChartType[]).map(t => (
-        <button key={t} onClick={() => onChange(t)}
-          className={`px-3 py-1.5 rounded text-sm transition ${value === t ? 'bg-blue-600 text-[color:var(--text-primary)]' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] text-[color:var(--text-secondary)]'}`}>
-          {t === 'line' ? 'Линейный' : t === 'bar' ? 'Столбцы' : 'Горизонтальные'}
+      {(['line','bar','bar-horizontal'] as ChartType[]).map(ct => (
+        <button key={ct} onClick={() => onChange(ct)}
+          className={`px-3 py-1.5 rounded text-sm transition ${value === ct ? 'bg-blue-600 text-[color:var(--text-primary)]' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] text-[color:var(--text-secondary)]'}`}>
+          {ct === 'line' ? t('ctrl_line') : ct === 'bar' ? t('ctrl_bar') : t('ctrl_bar_h')}
         </button>
       ))}
     </div>
@@ -82,9 +83,9 @@ function ChartTypeSwitcher({ value, onChange }: { value: ChartType; onChange: (t
 }
 
 // ─── SingleMetricChart ────────────────────────────────────────────
-function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, filename, extraControls }: {
+function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, filename, extraControls, t }: {
   title: string; data: any[]; dataKey: string; xKey: string; color: string
-  formatTooltip: (v: number) => string; filename: string; extraControls?: React.ReactNode
+  formatTooltip: (v: number) => string; filename: string; extraControls?: React.ReactNode; t: (k: any) => string
 }) {
   const [chartType, setChartType] = useState<ChartType>('line')
   const [showLabels, setShowLabels] = useState(false)
@@ -112,22 +113,22 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <h3 className="font-semibold text-lg">{title}</h3>
         <div className="flex items-center gap-3 flex-wrap">
-          <ChartTypeSwitcher value={chartType} onChange={setChartType} />
+          <ChartTypeSwitcher value={chartType} onChange={setChartType} t={t} />
           <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
             <input type="checkbox" checked={showLabels} onChange={() => setShowLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
-            Значения
+            {t('ctrl_values')}
           </label>
           {chartType === 'line' && (
             <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
               <input type="checkbox" checked={showDots} onChange={() => setShowDots(v => !v)} className="accent-blue-500 w-4 h-4" />
-              Точки
+              {t('ctrl_dots')}
             </label>
           )}
           {extraControls}
           {chartType === 'bar-horizontal' && data.length > 10 && (
             <button onClick={() => setShowAllHorizontal(!showAllHorizontal)}
               style={{ background: 'var(--bg-input)' }} className="px-3 py-1.5 rounded text-sm hover:bg-[var(--bg-hover)] text-[color:var(--text-primary)] transition">
-              {showAllHorizontal ? 'Свернуть до топ-10' : 'Показать все'}
+              {showAllHorizontal ? t('ctrl_collapse') : t('ctrl_show_all')}
             </button>
           )}
         </div>
@@ -164,17 +165,17 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
         )}
       </ResponsiveContainer>
       <div className="flex justify-end mt-3">
-        <DownloadBtn onClick={() => xlsxDownload(data.map(r => ({ [xKey]: r[xKey], [title]: r[dataKey] ?? 0 })), filename, title)} title={`Скачать «${title}»`} />
+        <DownloadBtn onClick={() => xlsxDownload(data.map(r => ({ [xKey]: r[xKey], [title]: r[dataKey] ?? 0 })), filename, title)} title={`${t('action_download')} «${title}»`} />
       </div>
     </div>
   )
 }
 
 // ─── MultiMetricChart ─────────────────────────────────────────────
-function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, dualAxis, normalize, extraControls }: {
+function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, dualAxis, normalize, extraControls, t }: {
   title: string; data: any[]; xKey: string
   metrics: { key: string; name: string; color: string; isPercent?: boolean; isSecondary?: boolean }[]
-  emptyMessage?: string; filename: string; dualAxis?: boolean; normalize?: boolean; extraControls?: React.ReactNode
+  emptyMessage?: string; filename: string; dualAxis?: boolean; normalize?: boolean; extraControls?: React.ReactNode; t: (k: any) => string
 }) {
   const [chartType, setChartType] = useState<ChartType>('line')
   const [active, setActive] = useState<string[]>(metrics.map(m => m.key))
@@ -221,7 +222,7 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
     <div style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl p-6 border border-dashed border-[var(--border)]">
       <h3 className="font-semibold text-lg mb-3">{title}</h3>
       <p className="text-[color:var(--text-faint)] text-sm text-center py-6">
-        {emptyMessage || 'Данные появятся после добавления дополнительных полей'}
+        {emptyMessage || t('no_data_extra')}
       </p>
     </div>
   )
@@ -291,7 +292,7 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <h3 className="font-semibold text-lg">{title}</h3>
         <div className="flex items-center gap-3 flex-wrap">
-          <ChartTypeSwitcher value={chartType} onChange={setChartType} />
+          <ChartTypeSwitcher value={chartType} onChange={setChartType} t={t} />
           {metrics.map(m => (
             <button key={m.key} onClick={() => toggle(m.key)}
               style={{
@@ -304,19 +305,19 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
           ))}
           <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
             <input type="checkbox" checked={showLabels} onChange={() => setShowLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
-            Значения
+            {t('ctrl_values')}
           </label>
           {chartType === 'line' && (
             <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
               <input type="checkbox" checked={showDots} onChange={() => setShowDots(v => !v)} className="accent-blue-500 w-4 h-4" />
-              Точки
+              {t('ctrl_dots')}
             </label>
           )}
           {extraControls}
           {chartType === 'bar-horizontal' && data.length > 10 && (
             <button onClick={() => setShowAllHorizontal(!showAllHorizontal)}
               style={{ background: 'var(--bg-input)' }} className="px-3 py-1.5 rounded text-sm hover:bg-[var(--bg-hover)] text-[color:var(--text-primary)] transition">
-              {showAllHorizontal ? 'Свернуть до топ-10' : 'Показать все'}
+              {showAllHorizontal ? t('ctrl_collapse') : t('ctrl_show_all')}
             </button>
           )}
         </div>
@@ -363,7 +364,7 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
         )}
       </ResponsiveContainer>
       <div className="flex justify-end mt-3">
-        <DownloadBtn onClick={handleDownload} title={`Скачать «${title}»`} />
+        <DownloadBtn onClick={handleDownload} title={`${t('action_download')} «${title}»`} />
       </div>
     </div>
   )
@@ -380,7 +381,7 @@ function SortTh({ col, label, sortBy, sortDir, onSort }: { col: string; label: s
 }
 
 // ─── StoreDropdown ────────────────────────────────────────────────
-function StoreDropdown({ stores, selected, onChange }: { stores: string[]; selected: string[]; onChange: (s: string[]) => void }) {
+function StoreDropdown({ stores, selected, onChange, t }: { stores: string[]; selected: string[]; onChange: (s: string[]) => void; t: (k: any) => string }) {
   const [open, setOpen] = useState(false)
   const ref = React.useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -394,13 +395,13 @@ function StoreDropdown({ stores, selected, onChange }: { stores: string[]; selec
       <button onClick={() => setOpen(v => !v)}
         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm border transition
           ${selected.length > 0 ? 'bg-blue-600/20 border-blue-500 text-[color:var(--text-primary)]' : 'bg-[var(--bg-input)] border-[var(--border)] text-[color:var(--text-secondary)] hover:bg-[var(--bg-hover)]'}`}>
-        <span>{selected.length > 0 ? `Выбрано: ${selected.length}` : 'Все магазины'}</span>
+        <span>{selected.length > 0 ? `${t('filter_selected')} ${selected.length}` : t('filter_all_stores')}</span>
         <span className="text-[color:var(--text-muted)] ml-2">{open ? '▲' : '▼'}</span>
       </button>
       {open && (
         <div style={{ background: 'var(--bg-card)' }} className="absolute z-50 mt-1 w-full min-w-[200px] border border-[var(--border)] rounded-xl shadow-2xl p-2 space-y-0.5 max-h-64 overflow-y-auto">
           <button onClick={() => onChange([])} className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-[color:var(--text-muted)] hover:bg-[var(--bg-hover)] transition">
-            Снять все
+            {t('filter_clear_all')}
           </button>
           {stores.map(s => (
             <label key={s} className="flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-[var(--bg-hover)] transition text-sm text-[color:var(--text-primary)]">
@@ -433,11 +434,11 @@ const RANGE_PRESETS: Record<string, { label: string; value: string }[]> = {
   ],
 }
 
-function RangeDropdown({ label, unit, min, setMin, max, setMax, onApply }: {
+function RangeDropdown({ label, unit, min, setMin, max, setMax, onApply, t }: {
   label: string; unit: string
   min: string; setMin: (v: string) => void
   max: string; setMax: (v: string) => void
-  onApply: () => void
+  onApply: () => void; t: (k: any) => string
 }) {
   const [open, setOpen] = useState(false)
   const [focusedField, setFocusedField] = useState<'min' | 'max' | null>(null)
@@ -487,7 +488,7 @@ function RangeDropdown({ label, unit, min, setMin, max, setMax, onApply }: {
           </div>
           <div>
             <p className="text-xs text-[color:var(--text-faint)] mb-1.5">
-              {focusedField ? `Быстрый выбор → ${focusedField === 'min' ? 'От' : 'До'}` : 'Выберите поле выше'}
+              {focusedField ? `${t('filter_quick')} → ${focusedField === 'min' ? t('filter_from') : t('filter_to')}` : t('map_select_field')}
             </p>
             <div className="flex flex-wrap gap-1">
               {presets.map(p => (
@@ -505,7 +506,7 @@ function RangeDropdown({ label, unit, min, setMin, max, setMax, onApply }: {
           {isActive && (
             <button onClick={() => { setMin(''); setMax(''); onApply(); setOpen(false); setFocusedField(null) }}
               className="w-full text-xs text-red-400 hover:text-red-300 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 transition">
-              ✕ Очистить
+              {`✕ ${t('filter_clear')}`}
             </button>
           )}
         </div>
@@ -516,6 +517,10 @@ function RangeDropdown({ label, unit, min, setMin, max, setMax, onApply }: {
 
 // ─── Dashboard ────────────────────────────────────────────────────
 export default function Dashboard() {
+  const { t } = useLang()
+  const MONTHS = [1,2,3,4,5,6,7,8,9,10,11,12].map(i => t(`mon_${i}` as any))
+  const MONTHS_FULL = [1,2,3,4,5,6,7,8,9,10,11,12].map(i => t(`mon_full_${i}` as any))
+  const FLEX_METRICS_T = FLEX_METRICS.map(m => ({ ...m, name: t(m.nameKey) }))
   const user = JSON.parse(localStorage.getItem('user') || 'null')
   const handleLogout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login' }
 
@@ -569,15 +574,15 @@ export default function Dashboard() {
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   const ALL_COLUMNS = [
-    { key: 'year',        label: 'Год' },
-    { key: 'month',       label: 'Месяц' },
-    { key: 'store',       label: 'Магазин' },
-    { key: 'revenue',     label: 'Выручка' },
-    { key: 'grossProfit', label: 'Вал. прибыль' },
-    { key: 'margin',      label: 'Маржа' },
-    { key: 'avgCheck',    label: 'Ср. чек' },
-    { key: 'quantity',    label: 'Кол-во продаж' },
-    { key: 'checks',      label: 'Чеки' },
+    { key: 'year',        label: t('table_year') },
+    { key: 'month',       label: t('table_month') },
+    { key: 'store',       label: t('table_store') },
+    { key: 'revenue',     label: t('metric_revenue') },
+    { key: 'grossProfit', label: t('metric_gross') },
+    { key: 'margin',      label: t('metric_margin') },
+    { key: 'avgCheck',    label: t('metric_avg_check') },
+    { key: 'quantity',    label: t('metric_quantity') },
+    { key: 'checks',      label: t('metric_checks') },
   ]
   const activeRangeFilters = new Set<string>()
   if (filterRevenueMin  || filterRevenueMax)  activeRangeFilters.add('revenue')
@@ -676,7 +681,7 @@ export default function Dashboard() {
       const res = await axios.post(`${API}/sync`)
       await fetchAll(); await fetchTable()
       setSyncResult(res.data)
-    } catch (e: any) { alert('Ошибка: ' + (e.response?.data?.error || e.message)) }
+    } catch (e: any) { alert('Error: ' + (e.response?.data?.error || e.message)) }
     setSyncing(false)
   }
 
@@ -691,18 +696,18 @@ export default function Dashboard() {
   const yearLabel = selectedYear ? `_${selectedYear}` : ''
 
   const downloadOverview = () => xlsxDownloadMulti([
-    { name: 'Выручка',              rows: trendWithCalc.map(r => ({ Период: r.label, 'Выручка (MDL)': r.revenue })) },
-    { name: 'Кол-во продаж',        rows: trendWithCalc.map(r => ({ Период: r.label, 'Кол-во продаж': r.quantity })) },
-    { name: 'Кол-во чеков',         rows: trendWithCalc.map(r => ({ Период: r.label, 'Кол-во чеков': r.checks })) },
-    { name: 'Средний чек',          rows: trendWithCalc.map(r => ({ Период: r.label, 'Средний чек (MDL)': r.avgCheck })) },
-    { name: 'Вал. прибыль и маржа', rows: trendWithCalc.map(r => ({ Период: r.label, 'Вал. прибыль (MDL)': r.grossProfit, 'Маржа (%)': r.margin })) },
-    { name: 'По годам',             rows: yearTrend.map(r => ({ Год: r.year, 'Выручка (MDL)': r.revenue, 'Вал. прибыль (MDL)': r.grossProfit, 'Кол-во': r.quantity })) },
-    ...(extraFields.length > 0 ? [{ name: 'Остальное', rows: trendWithCalc.map(r => { const obj: any = { Период: r.label }; extraFields.forEach(f => { obj[f.name] = r[f.key] ?? 0 }); return obj }) }] : [])
+    { name: t('metric_revenue'),     rows: trendWithCalc.map(r => ({ [t('cmp_period')]: r.label, [t('metric_revenue_mdl')]: r.revenue })) },
+    { name: t('metric_quantity'),    rows: trendWithCalc.map(r => ({ [t('cmp_period')]: r.label, [t('metric_quantity')]: r.quantity })) },
+    { name: t('metric_checks'),      rows: trendWithCalc.map(r => ({ [t('cmp_period')]: r.label, [t('metric_checks')]: r.checks })) },
+    { name: t('kpi_avg_check'),      rows: trendWithCalc.map(r => ({ [t('cmp_period')]: r.label, [t('metric_avg_check_mdl')]: r.avgCheck })) },
+    { name: t('chart_gross_margin'), rows: trendWithCalc.map(r => ({ [t('cmp_period')]: r.label, [t('metric_gross_mdl')]: r.grossProfit, [t('metric_margin')]: r.margin })) },
+    { name: t('chart_by_year'),      rows: yearTrend.map(r => ({ [t('table_year')]: r.year, [t('metric_revenue_mdl')]: r.revenue, [t('metric_gross_mdl')]: r.grossProfit, [t('metric_quantity')]: r.quantity })) },
+    ...(extraFields.length > 0 ? [{ name: t('chart_other'), rows: trendWithCalc.map(r => { const obj: any = { [t('cmp_period')]: r.label }; extraFields.forEach(f => { obj[f.name] = r[f.key] ?? 0 }); return obj }) }] : [])
   ], `Дашборд_Тренды${yearLabel}`)
 
   const downloadBreakdown = () => xlsxDownloadMulti([
-    { name: 'Доля выручки по магазинам', rows: byStore.map(r => ({ Магазин: r.store, 'Выручка (MDL)': r.revenue })) },
-    { name: 'Топ магазинов', rows: [...byStore].sort((a,b) => b.revenue - a.revenue).map((r, i) => ({ '#': i+1, Магазин: r.store, 'Выручка (MDL)': r.revenue })) }
+    { name: t('chart_store_pie'), rows: byStore.map(r => ({ [t('table_store')]: r.store, [t('metric_revenue_mdl')]: r.revenue })) },
+    { name: t('chart_top_stores'), rows: [...byStore].sort((a,b) => b.revenue - a.revenue).map((r, i) => ({ '#': i+1, [t('table_store')]: r.store, [t('metric_revenue_mdl')]: r.revenue })) }
   ], `Дашборд_Разбивка${yearLabel}`)
 
   const downloadTable = () => xlsxDownload(
@@ -710,10 +715,10 @@ export default function Dashboard() {
       const margin = row.revenue > 0 ? parseFloat(((row.grossProfit / row.revenue) * 100).toFixed(2)) : 0
       const avgCheck = row.checks > 0 ? Math.round(row.revenue / row.checks) : 0
       const obj: any = {
-        Год: row.year, Месяц: MONTHS_FULL[row.month - 1], Магазин: row.store,
-        'Выручка (MDL)': row.revenue, 'Вал. прибыль (MDL)': row.grossProfit ?? 0,
-        'Маржа (%)': margin, 'Ср. чек (MDL)': avgCheck,
-        'Кол-во продаж': row.quantity ?? 0, 'Чеки': row.checks ?? 0,
+        [t('table_year')]: row.year, [t('table_month')]: MONTHS_FULL[row.month - 1], [t('table_store')]: row.store,
+        [t('metric_revenue_mdl')]: row.revenue, [t('metric_gross_mdl')]: row.grossProfit ?? 0,
+        [t('metric_margin')]: margin, [t('metric_avg_check_mdl')]: avgCheck,
+        [t('metric_quantity')]: row.quantity ?? 0, [t('metric_checks')]: row.checks ?? 0,
       }
       extraFields.forEach(f => { obj[f.name] = row.extraData?.[f.key] ?? row[f.key] ?? '' })
       return obj
@@ -721,13 +726,13 @@ export default function Dashboard() {
   )
 
   const kpiCards = kpi ? [
-    { label: 'Выручка',       value: fmt(kpi.totalRevenue ?? 0),       color: 'text-blue-400' },
-    { label: 'Кол-во продаж', value: fmtNum(kpi.totalQuantity ?? 0), color: 'text-purple-400' },
-    { label: 'Кол-во чеков',  value: fmtNum(kpi.totalChecks ?? 0),   color: 'text-cyan-400' },
-    { label: 'Ср. чек',        value: fmtNum(kpi.avgCheck ?? 0) + ' MDL', color: 'text-yellow-400' },
-    { label: 'Ср. цена',       value: fmtNum(kpi.avgPrice ?? 0) + ' MDL', color: 'text-orange-400' },
-    { label: 'Вал. прибыль',  value: fmt(kpi.totalGrossProfit ?? 0),   color: 'text-green-400' },
-    { label: 'Маржа', value: fmtPct(kpi.totalRevenue > 0 ? (kpi.totalGrossProfit / kpi.totalRevenue) * 100 : 0), color: 'text-pink-400' },
+    { label: t('kpi_revenue'),       value: fmt(kpi.totalRevenue ?? 0),       color: 'text-blue-400' },
+    { label: t('kpi_quantity'), value: fmtNum(kpi.totalQuantity ?? 0), color: 'text-purple-400' },
+    { label: t('kpi_checks'),  value: fmtNum(kpi.totalChecks ?? 0),   color: 'text-cyan-400' },
+    { label: t('kpi_avg_check'), value: fmtNum(kpi.avgCheck ?? 0) + ' MDL', color: 'text-yellow-400' },
+    { label: t('kpi_avg_price'), value: fmtNum(kpi.avgPrice ?? 0) + ' MDL', color: 'text-orange-400' },
+    { label: t('kpi_gross_profit'), value: fmt(kpi.totalGrossProfit ?? 0),   color: 'text-green-400' },
+    { label: t('kpi_margin'), value: fmtPct(kpi.totalRevenue > 0 ? (kpi.totalGrossProfit / kpi.totalRevenue) * 100 : 0), color: 'text-pink-400' },
   ] : []
 
   const tabDownloadMap: Record<string, () => void> = { overview: downloadOverview, breakdown: downloadBreakdown, table: downloadTable }
@@ -744,20 +749,20 @@ export default function Dashboard() {
         <>
           <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); setPage(1) }}
             className={`text-[color:var(--text-primary)] text-sm px-3 py-1.5 rounded-lg border transition ${selectedStore ? 'bg-blue-700 border-blue-500' : 'bg-[var(--bg-input)] border-[var(--border)]'}`}>
-            <option value="">Все магазины</option>
+            <option value="">{t('filter_all_stores')}</option>
             {allStores.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <select value={selectedYear} onChange={e => { setSelectedYear(e.target.value); setPage(1) }}
             style={{ background: 'var(--bg-input)' }} className="text-[color:var(--text-primary)] text-sm px-3 py-1.5 rounded-lg border border-[var(--border)]">
-            <option value="">Все годы</option>
+            <option value="">{t('filter_all_years')}</option>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
           <button onClick={handleSync} disabled={syncing}
             className="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition">
-            {syncing ? '⟳ Синхронизация...' : 'Sync Google Sheets'}
+            {syncing ? t('action_syncing') : t('action_sync')}
           </button>
           <span className="text-[color:var(--text-muted)] text-sm">{user?.name}</span>
-          <button onClick={handleLogout} style={{ background: 'var(--bg-input)' }} className="hover:bg-[var(--bg-hover)] px-3 py-1.5 rounded-lg text-sm transition">Выйти</button>
+          <button onClick={handleLogout} style={{ background: 'var(--bg-input)' }} className="hover:bg-[var(--bg-hover)] px-3 py-1.5 rounded-lg text-sm transition">{t('action_logout')}</button>
         </>
       } />
       {syncResult && <SyncNotification result={syncResult} onClose={() => setSyncResult(null)} />}
@@ -765,7 +770,7 @@ export default function Dashboard() {
       <div className="p-6 space-y-6">
         {!hasMappings && (
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-yellow-400 text-sm">
-            Маппинг не настроен. <a href="/mapping/settings" className="underline font-medium">Настройте маппинг</a> и выполните синхронизацию чтобы увидеть данные.
+            {t('map_not_set')} <a href="/mapping/settings" className="underline font-medium">{t('map_setup')}</a> {t('map_sync')}
           </div>
         )}
 
@@ -782,7 +787,7 @@ export default function Dashboard() {
 
         <div className="flex items-center justify-between">
           <div className="flex gap-2">
-            {[{ id: 'overview', label: 'Тренды' }, { id: 'breakdown', label: 'Разбивка' }, { id: 'stores', label: 'По магазинам' }, { id: 'table', label: 'Таблица' }].map(tab => (
+            {[{ id: 'overview', label: t('tab_trends') }, { id: 'breakdown', label: t('tab_breakdown') }, { id: 'stores', label: t('tab_stores') }, { id: 'table', label: t('tab_table') }].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === tab.id ? 'bg-blue-600' : 'bg-[var(--bg-card)] hover:bg-[var(--bg-hover)]'}`}>
                 {tab.label}
@@ -794,7 +799,7 @@ export default function Dashboard() {
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
             </svg>
-            Скачать всё
+            {t('action_download_all')}
           </button>
         </div>
 
@@ -809,7 +814,7 @@ export default function Dashboard() {
               const showLabels = cfg.showLabels
               const showDots   = cfg.showDots
               const normalize  = cfg.normalize
-              const activeMetrics = FLEX_METRICS.filter(m => cfg.metrics.includes(m.key))
+              const activeMetrics = FLEX_METRICS_T.filter(m => cfg.metrics.includes(m.key))
 
               // Разбиваем метрики на группы по осям:
               // Левая ось: MDL (revenue, grossProfit, avgCheck)
@@ -879,7 +884,7 @@ export default function Dashboard() {
                     <p style={{ color: 'var(--text-primary)', fontSize: 13, marginBottom: 6 }}>{label}</p>
                     {payload.map((entry: any) => {
                       const rawKey = entry.dataKey?.replace('__norm_', '')
-                      const met = FLEX_METRICS.find(x => x.key === rawKey)
+                      const met = FLEX_METRICS_T.find(x => x.key === rawKey)
                       const realVal = normalize ? entry.payload[rawKey] : entry.value
                       const formatted = met?.isPercent
                         ? `${Number(realVal).toFixed(1).replace('.', ',')} %`
@@ -956,7 +961,7 @@ export default function Dashboard() {
                               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px' }}>
                                 <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 6 }}>#{label}</p>
                                 {payload.map((entry: any) => {
-                                  const met = FLEX_METRICS.find(x => x.key === entry.dataKey)
+                                  const met = FLEX_METRICS_T.find(x => x.key === entry.dataKey)
                                   const formatted = met?.isPercent
                                     ? `${Number(entry.value).toFixed(1).replace('.', ',')} %`
                                     : met?.isSecondary ? fmtNum(Number(entry.value)) : fmt(Number(entry.value))
@@ -1029,7 +1034,7 @@ export default function Dashboard() {
                                 <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px' }}>
                                   <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 6 }}>#{label}</p>
                                   {payload.map((entry: any) => {
-                                    const met = FLEX_METRICS.find(x => x.key === entry.dataKey)
+                                    const met = FLEX_METRICS_T.find(x => x.key === entry.dataKey)
                                     const formatted = met?.isPercent
                                       ? `${Number(entry.value).toFixed(1).replace('.', ',')} %`
                                       : met?.isSecondary ? fmtNum(Number(entry.value)) : fmt(Number(entry.value))
@@ -1056,7 +1061,7 @@ export default function Dashboard() {
                           <div className="flex justify-center mt-2">
                             <button onClick={() => updateCfg({ showAllHorizontal: !cfg.showAllHorizontal })}
                               style={{ background: 'var(--bg-input)' }} className="px-4 py-1.5 rounded-lg text-sm hover:bg-[var(--bg-hover)] text-[color:var(--text-secondary)] transition">
-                              {cfg.showAllHorizontal ? 'Свернуть до топ-10' : `Показать все (${valueData.length})`}
+                              {cfg.showAllHorizontal ? t('ctrl_collapse') : `${t('ctrl_show_all')} (${valueData.length})`}
                             </button>
                           </div>
                         )}
@@ -1085,7 +1090,7 @@ export default function Dashboard() {
                         <div className="flex justify-center mt-2">
                           <button onClick={() => updateCfg({ showAllHorizontal: !cfg.showAllHorizontal })}
                             style={{ background: 'var(--bg-input)' }} className="px-4 py-1.5 rounded-lg text-sm hover:bg-[var(--bg-hover)] text-[color:var(--text-secondary)] transition">
-                            {cfg.showAllHorizontal ? 'Свернуть до топ-10' : `Показать все (${sorted.length})`}
+                            {cfg.showAllHorizontal ? t('ctrl_collapse') : `${t('ctrl_show_all')} (${sorted.length})`}
                           </button>
                         </div>
                       )}
@@ -1097,7 +1102,7 @@ export default function Dashboard() {
               }
 
               const renderCompareChart = () => {
-                if (compareData.length === 0) return <p className="text-[color:var(--text-faint)] text-center py-10">Нет данных для сравнения</p>
+                if (compareData.length === 0) return <p className="text-[color:var(--text-faint)] text-center py-10">{t('cmp_no_data')}</p>
                 const xInterval = Math.floor(compareData.length / 10)
                 const compareTt = ({ active, payload, label }: any) => {
                   if (!active || !payload?.length) return null
@@ -1108,7 +1113,7 @@ export default function Dashboard() {
                       <p style={{ color: 'var(--text-faint)', fontSize: 11, marginBottom: 6 }}>vs {row?._prevLabel}</p>
                       {payload.map((entry: any) => {
                         const mKey = entry.dataKey
-                        const met = FLEX_METRICS.find(x => x.key === mKey)
+                        const met = FLEX_METRICS_T.find(x => x.key === mKey)
                         const cur = row?.[mKey + '_cur'] ?? 0
                         const prv = row?.[mKey + '_prev'] ?? 0
                         const abs = row?.[mKey + '_abs'] ?? 0
@@ -1155,12 +1160,12 @@ export default function Dashboard() {
                 <div style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl p-6 border border-[var(--border)]">
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-lg mr-2">Аналитика</h3>
+                      <h3 className="font-semibold text-lg mr-2">{t('chart_analytics')}</h3>
                       {cfg.compareMode === 'none' && (
-                        <ChartTypeSwitcher value={cfg.chartType} onChange={v => updateCfg({ chartType: v })} />
+                        <ChartTypeSwitcher value={cfg.chartType} onChange={v => updateCfg({ chartType: v })} t={t} />
                       )}
                       <span className="text-[color:var(--text-faint)] text-xs mx-1">|</span>
-                      {FLEX_METRICS.map(m => (
+                      {FLEX_METRICS_T.map(m => (
                         <button key={m.key}
                           onClick={() => {
                             const has = cfg.metrics.includes(m.key)
@@ -1179,12 +1184,12 @@ export default function Dashboard() {
                     <div className="flex items-center gap-3">
                       <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
                         <input type="checkbox" checked={showLabels} onChange={() => updateCfg({ showLabels: !showLabels })} className="accent-blue-500 w-4 h-4" />
-                        Значения
+                        {t('ctrl_values')}
                       </label>
                       {cfg.chartType === 'line' && (
                         <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
                           <input type="checkbox" checked={showDots} onChange={() => updateCfg({ showDots: !showDots })} className="accent-blue-500 w-4 h-4" />
-                          Точки
+                          {t('ctrl_dots')}
                         </label>
                       )}
                       <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: normalize ? '#f59e0b' : 'var(--text-muted)' }}>
@@ -1196,7 +1201,7 @@ export default function Dashboard() {
                           {(['chrono', 'value'] as const).map(mode => (
                             <button key={mode} onClick={() => updateCfg({ sortMode: mode })}
                               className={`px-3 py-1.5 text-xs transition ${cfg.sortMode === mode ? 'bg-blue-600 text-[color:var(--text-primary)]' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] text-[color:var(--text-secondary)]'}`}>
-                              {mode === 'chrono' ? 'Хронология' : 'Значение'}
+                              {mode === 'chrono' ? t('ctrl_chrono') : t('ctrl_value_sort')}
                             </button>
                           ))}
                         </div>
@@ -1204,8 +1209,8 @@ export default function Dashboard() {
                       <span className="text-[color:var(--text-faint)] text-xs mx-1">|</span>
                       <div className="flex rounded-lg overflow-hidden border border-[var(--border)]">
                         {([
-                          { id: 'none', label: 'Обычный' },
-                          { id: 'mom',  label: 'Месяц к месяцу' },
+                          { id: 'none', label: t('ctrl_normal') },
+                          { id: 'mom',  label: t('ctrl_mom') },
                         ] as const).map(m => (
                           <button key={m.id} onClick={() => updateCfg({ compareMode: m.id })}
                             className={`px-3 py-1.5 text-xs transition ${cfg.compareMode === m.id ? 'bg-violet-600 text-[color:var(--text-primary)]' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] text-[color:var(--text-secondary)]'}`}>
@@ -1216,21 +1221,21 @@ export default function Dashboard() {
                     </div>
                     <DownloadBtn onClick={() => {
                       const rows = (cfg.compareMode !== 'none' ? compareData : sortedData).map(r => {
-                        const obj: any = { Период: r.label }
+                        const obj: any = { [t('cmp_period')]: r.label }
                         activeMetrics.forEach(m => {
                           if (cfg.compareMode !== 'none') {
-                            obj[m.name + ' (тек.)'] = r[m.key + '_cur'] ?? 0
-                            obj[m.name + ' (пред.)'] = r[m.key + '_prev'] ?? 0
-                            obj[m.name + ' (изм.)'] = r[m.key + '_abs'] ?? 0
-                            obj[m.name + ' (изм. %)'] = r[m.key + '_pct'] ?? 0
+                            obj[m.name + ` (${t('table_year')})`] = r[m.key + '_cur'] ?? 0
+                            obj[m.name + ` (${t('cmp_base_label')})`] = r[m.key + '_prev'] ?? 0
+                            obj[m.name + ` (Δ)`] = r[m.key + '_abs'] ?? 0
+                            obj[m.name + ` (Δ%)`] = r[m.key + '_pct'] ?? 0
                           } else {
                             obj[m.name] = r[m.key] ?? 0
                           }
                         })
                         return obj
                       })
-                      xlsxDownload(rows, `Аналитика${yearLabel}`, 'Аналитика')
-                    }} title="Скачать график" />
+                      xlsxDownload(rows, `Analytics${yearLabel}`, t('chart_analytics'))
+                    }} title={t('action_download')} />
                   </div>
                   {cfg.compareMode !== 'none' ? renderCompareChart() : renderFlexChart()}
                 </div>
@@ -1238,39 +1243,46 @@ export default function Dashboard() {
             })()}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SingleMetricChart title="Выручка" data={trendWithCalc} dataKey="revenue" xKey="label" color="#3b82f6" formatTooltip={v => fmt(v)} filename={`Выручка${yearLabel}`} />
-              <SingleMetricChart title="Кол-во продаж (наполненность)" data={trendWithCalc} dataKey="quantity" xKey="label" color="#8b5cf6" formatTooltip={v => fmtNum(v)} filename={`Кол-во_продаж${yearLabel}`} />
+              <SingleMetricChart title={t('chart_revenue')} data={trendWithCalc} dataKey="revenue" xKey="label" color="#3b82f6" formatTooltip={v => fmt(v)} filename={`Выручка${yearLabel}`}
+              t={t} />
+              <SingleMetricChart title={t('kpi_quantity')} data={trendWithCalc} dataKey="quantity" xKey="label" color="#8b5cf6" formatTooltip={v => fmtNum(v)} filename={`Кол-во_продаж${yearLabel}`}
+              t={t} />
             </div>
-            <SingleMetricChart title="Кол-во чеков" data={trendWithCalc} dataKey="checks" xKey="label" color="#06b6d4" formatTooltip={v => fmtNum(v)} filename={`Кол-во_чеков${yearLabel}`} />
-            <MultiMetricChart title="Ср. чек / Ср. кол-во на магазин / Маржа" data={trendWithCalc} xKey="label"
+            <SingleMetricChart title={t('chart_checks')} data={trendWithCalc} dataKey="checks" xKey="label" color="#06b6d4" formatTooltip={v => fmtNum(v)} filename={`Кол-во_чеков${yearLabel}`}
+              t={t} />
+            <MultiMetricChart title={t('chart_avg_metrics')} data={trendWithCalc} xKey="label"
               dualAxis={!normAvgCheck} normalize={normAvgCheck}
               metrics={[
-                { key: 'avgCheck',            name: 'Ср. чек (MDL)',          color: '#f59e0b' },
-                { key: 'avgQuantityPerStore',  name: 'Ср. кол-во на магазин',  color: '#8b5cf6', isSecondary: true },
-                { key: 'margin',              name: 'Маржа (%)',               color: '#ec4899', isPercent: true, isSecondary: true },
+                { key: 'avgCheck',            name: t('metric_avg_check_mdl'),          color: '#f59e0b' },
+                { key: 'avgQuantityPerStore',  name: t('metric_avg_qty_store'),  color: '#8b5cf6', isSecondary: true },
+                { key: 'margin',              name: t('metric_margin'),               color: '#ec4899', isPercent: true, isSecondary: true },
               ]}
               extraControls={
                 <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: normAvgCheck ? '#f59e0b' : 'var(--text-muted)' }}>
                   <input type="checkbox" checked={normAvgCheck} onChange={() => setNormAvgCheck(v => !v)} className="accent-amber-500 w-4 h-4" />
-                  Норм. шкала
+                  {t('ctrl_norm_scale')}
                 </label>
               }
-              filename={`Ср_чек_кол-во_маржа${yearLabel}`} />
-            <MultiMetricChart title="Вал. прибыль и маржа" data={trendWithCalc} xKey="label" dualAxis
+              filename={`Ср_чек_кол-во_маржа${yearLabel}`}
+              t={t} />
+            <MultiMetricChart title={t('chart_gross_margin')} data={trendWithCalc} xKey="label" dualAxis
               metrics={[
-                { key: 'grossProfit', name: 'Вал. прибыль', color: '#10b981', isPercent: false },
-                { key: 'margin',      name: 'Маржа (%)',     color: '#ec4899', isPercent: true },
+                { key: 'grossProfit', name: t('metric_gross'), color: '#10b981', isPercent: false },
+                { key: 'margin',      name: t('metric_margin'),     color: '#ec4899', isPercent: true },
               ]}
-              filename={`Валовая_прибыль_и_маржа${yearLabel}`} />
-            <MultiMetricChart title="По годам" data={yearTrend} xKey="year"
+              filename={`Валовая_прибыль_и_маржа${yearLabel}`}
+              t={t} />
+            <MultiMetricChart title={t('chart_by_year')} data={yearTrend} xKey="year"
               metrics={[
-                { key: 'revenue',     name: 'Выручка (MDL)',      color: '#3b82f6' },
-                { key: 'grossProfit', name: 'Вал. прибыль (MDL)', color: '#10b981' },
+                { key: 'revenue',     name: t('metric_revenue_mdl'),      color: '#3b82f6' },
+                { key: 'grossProfit', name: t('metric_gross_mdl'), color: '#10b981' },
               ]}
-              filename="По_годам" />
-            <MultiMetricChart title="Остальное" data={trendWithCalc} xKey="label" metrics={extraFields}
-              emptyMessage="Здесь будут отображаться дополнительные поля добавленные через Google Sheets или маппинг"
-              filename={`Остальное${yearLabel}`} />
+              filename="По_годам"
+              t={t} />
+            <MultiMetricChart title={t('chart_other')} data={trendWithCalc} xKey="label" metrics={extraFields}
+              emptyMessage={t('no_data_extra')}
+              filename={`Остальное${yearLabel}`}
+              t={t} />
 
 
           </div>
@@ -1281,10 +1293,10 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl p-6 border border-[var(--border)]">
               <div className="flex justify-between items-center mb-5">
-                <h3 className="font-semibold text-lg">Доля выручки по магазинам</h3>
+                <h3 className="font-semibold text-lg">{t('chart_store_pie')}</h3>
                 <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
                   <input type="checkbox" checked={showStorePieLabels} onChange={() => setShowStorePieLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
-                  Значения
+                  {t('ctrl_values')}
                 </label>
               </div>
               <ResponsiveContainer width="100%" height={320}>
@@ -1298,22 +1310,23 @@ export default function Dashboard() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex justify-end mt-3">
-                <DownloadBtn onClick={() => xlsxDownload(byStore.map(r => ({ Магазин: r.store, 'Выручка (MDL)': r.revenue })), `Доля_выручки_по_магазинам${yearLabel}`, 'Доля по магазинам')} title="Скачать" />
+                <DownloadBtn onClick={() => xlsxDownload(byStore.map(r => ({ [t('table_store')]: r.store, [t('metric_revenue_mdl')]: r.revenue })), `Доля_выручки_по_магазинам${yearLabel}`, 'Доля по магазинам')} title="Скачать" />
               </div>
             </div>
-            <SingleMetricChart title="Топ магазинов по выручке" data={byStore} dataKey="revenue" xKey="store" color="#8b5cf6" formatTooltip={v => fmt(v)} filename={`Топ_магазинов${yearLabel}`} />
+            <SingleMetricChart title={t('chart_top_stores')} data={byStore} dataKey="revenue" xKey="store" color="#8b5cf6" formatTooltip={v => fmt(v)} filename={`Топ_магазинов${yearLabel}`}
+              t={t} />
           </div>
         )}
 
         {/* По магазинам */}
         {activeTab === 'stores' && (() => {
           const STORE_METRICS = [
-            { key: 'revenue',     label: 'Выручка',        fmt: (v: number) => fmt(v) },
-            { key: 'grossProfit', label: 'Вал. прибыль',   fmt: (v: number) => fmt(v) },
-            { key: 'margin',      label: 'Маржа (%)',       fmt: (v: number) => fmtPct(v) },
-            { key: 'avgCheck',    label: 'Ср. чек',        fmt: (v: number) => fmt(v) },
-            { key: 'quantity',    label: 'Кол-во продаж',  fmt: (v: number) => fmtNum(v) },
-            { key: 'checks',      label: 'Кол-во чеков',   fmt: (v: number) => fmtNum(v) },
+            { key: 'revenue',     label: t('metric_revenue'),   fmt: (v: number) => fmt(v) },
+            { key: 'grossProfit', label: t('metric_gross'),      fmt: (v: number) => fmt(v) },
+            { key: 'margin',      label: t('metric_margin'),     fmt: (v: number) => fmtPct(v) },
+            { key: 'avgCheck',    label: t('metric_avg_check'), fmt: (v: number) => fmt(v) },
+            { key: 'quantity',    label: t('metric_quantity'),  fmt: (v: number) => fmtNum(v) },
+            { key: 'checks',      label: t('metric_checks'),    fmt: (v: number) => fmtNum(v) },
           ]
           const visibleStores = storeTrendSelectedStores.length > 0
             ? storeTrendSelectedStores.filter(s => storeTrend.stores.includes(s))
@@ -1396,7 +1409,7 @@ export default function Dashboard() {
                 <div className="flex flex-wrap gap-4">
                   {/* Метрика */}
                   <div>
-                    <p className="text-xs text-[color:var(--text-muted)] mb-2">Показатель</p>
+                    <p className="text-xs text-[color:var(--text-muted)] mb-2">{t('stores_indicator')}</p>
                     <div className="flex flex-wrap gap-1">
                       {STORE_METRICS.map(m => (
                         <button key={m.key} onClick={() => setStoreTrendMetric(m.key)}
@@ -1408,14 +1421,13 @@ export default function Dashboard() {
                   </div>
                   {/* Тип графика */}
                   <div>
-                    <p className="text-xs text-[color:var(--text-muted)] mb-2">Тип графика</p>
-                    <ChartTypeSwitcher value={storeTrendType} onChange={setStoreTrendType} />
+                    <p className="text-xs text-[color:var(--text-muted)] mb-2">{t('stores_chart_type')}</p>
+                    <ChartTypeSwitcher value={storeTrendType} onChange={setStoreTrendType} t={t} />
                   </div>
-                  {/* Опции */}
-                  <div className="flex items-end gap-3">
+                                    <div className="flex items-end gap-3">
                     <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
                       <input type="checkbox" checked={storeTrendShowLabels} onChange={() => setStoreTrendShowLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
-                      Значения
+                      {t('ctrl_values')}
                     </label>
                     {storeTrendType === 'line' && (
                       <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
@@ -1427,7 +1439,7 @@ export default function Dashboard() {
                 </div>
                 {/* Выбор магазинов */}
                 <div className="mt-4">
-                  <p className="text-xs text-[color:var(--text-muted)] mb-2">Магазины <span className="text-[color:var(--text-faint)]">(все по умолчанию)</span></p>
+                  <p className="text-xs text-[color:var(--text-muted)] mb-2">{t('filter_stores')} <span className="text-[color:var(--text-faint)]">({t('stores_all_default')})</span></p>
                   <div className="flex flex-wrap gap-1">
                     <button onClick={() => setStoreTrendSelectedStores([])}
                       className={`px-3 py-1 rounded text-xs transition ${storeTrendSelectedStores.length === 0 ? 'bg-blue-600 text-[color:var(--text-primary)]' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] text-[color:var(--text-muted)]'}`}>
@@ -1458,19 +1470,19 @@ export default function Dashboard() {
               <div style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl p-6 border border-[var(--border)]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-semibold text-lg">
-                    {STORE_METRICS.find(m => m.key === storeTrendMetric)?.label} по магазинам
+                    {STORE_METRICS.find(m => m.key === storeTrendMetric)?.label} {t('tab_stores')}
                   </h3>
                   <DownloadBtn onClick={() => {
                     const rows = chartData.map(r => {
-                      const obj: any = { Период: r.label }
+                      const obj: any = { [t('cmp_period')]: r.label }
                       visibleStores.forEach(s => { obj[s] = r[s] ?? 0 })
                       return obj
                     })
                     xlsxDownload(rows, `По_магазинам_${storeTrendMetric}${yearLabel}`, 'По магазинам')
-                  }} title="Скачать" />
+                  }} title={t('action_download')} />
                 </div>
                 {storeTrend.periods.length === 0
-                  ? <p className="text-[color:var(--text-faint)] text-center py-10">Нет данных</p>
+                  ? <p className="text-[color:var(--text-faint)] text-center py-10">{t('no_data')}</p>
                   : renderStoreChart()
                 }
               </div>
@@ -1485,7 +1497,7 @@ export default function Dashboard() {
               <button onClick={() => setFiltersOpen(v => !v)}
                 className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium hover:bg-[var(--bg-hover)]/50 transition rounded-xl">
                 <div className="flex items-center gap-3">
-                  <span>🔍 Фильтры</span>
+                  <span>🔍 {t('filter_filters')}</span>
                   {activeFilterCount > 0 && <span className="bg-blue-600 text-[color:var(--text-primary)] text-xs px-2 py-0.5 rounded-full">{activeFilterCount}</span>}
                 </div>
                 <span className="text-[color:var(--text-muted)]">{filtersOpen ? '▲' : '▼'}</span>
@@ -1493,14 +1505,14 @@ export default function Dashboard() {
               {filtersOpen && (
                 <div className="px-5 pb-5 border-t border-[var(--border)] pt-4 space-y-5">
                   <div>
-                    <label className="text-xs text-[color:var(--text-muted)] mb-1 block">Поиск по магазину</label>
-                    <input type="text" placeholder="Введите название..." value={filterSearch}
+                    <label className="text-xs text-[color:var(--text-muted)] mb-1 block">{t('filter_search')}</label>
+                    <input type="text" placeholder={t('filter_search')} value={filterSearch}
                       onChange={e => { setFilterSearch(e.target.value); setPage(1) }}
                       style={{ background: 'var(--bg-input)' }} className="w-full text-[color:var(--text-primary)] rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div>
-                      <label className="text-xs text-[color:var(--text-muted)] mb-2 block">Год</label>
+                      <label className="text-xs text-[color:var(--text-muted)] mb-2 block">{t('table_year')}</label>
                       <div className="flex flex-wrap gap-1">
                         {years.map(y => (
                           <button key={y} onClick={() => { setFilterYears(prev => prev.includes(y) ? prev.filter(x => x !== y) : [...prev, y]); setPage(1) }}
@@ -1511,7 +1523,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div>
-                      <label className="text-xs text-[color:var(--text-muted)] mb-2 block">Месяц</label>
+                      <label className="text-xs text-[color:var(--text-muted)] mb-2 block">{t('table_month')}</label>
                       <div className="grid grid-cols-4 gap-1">
                         {MONTHS.map((m, i) => (
                           <button key={i} onClick={() => { setFilterMonths(prev => prev.includes(i+1) ? prev.filter(x => x !== i+1) : [...prev, i+1]); setPage(1) }}
@@ -1522,29 +1534,29 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="relative">
-                      <label className="text-xs text-[color:var(--text-muted)] mb-2 block">Магазин</label>
-                      <StoreDropdown stores={allStores} selected={filterStores} onChange={s => { setFilterStores(s); setPage(1) }} />
+                      <label className="text-xs text-[color:var(--text-muted)] mb-2 block">{t('table_store')}</label>
+                      <StoreDropdown stores={allStores} selected={filterStores} onChange={s => { setFilterStores(s); setPage(1) }}  t={t}/>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
                     {[
-                      { label: 'Выручка',       unit: 'MDL', min: filterRevenueMin,  setMin: setFilterRevenueMin,  max: filterRevenueMax,  setMax: setFilterRevenueMax },
-                      { label: 'Вал. прибыль',  unit: 'MDL', min: filterGrossMin,    setMin: setFilterGrossMin,    max: filterGrossMax,    setMax: setFilterGrossMax },
-                      { label: 'Маржа',         unit: '%',   min: filterMarginMin,   setMin: setFilterMarginMin,   max: filterMarginMax,   setMax: setFilterMarginMax },
-                      { label: 'Ср. чек',       unit: 'MDL', min: filterAvgCheckMin, setMin: setFilterAvgCheckMin, max: filterAvgCheckMax, setMax: setFilterAvgCheckMax },
-                      { label: 'Чеки',          unit: '',    min: filterChecksMin,   setMin: setFilterChecksMin,   max: filterChecksMax,   setMax: setFilterChecksMax },
-                      { label: 'Кол-во продаж', unit: '',    min: filterQuantityMin, setMin: setFilterQuantityMin, max: filterQuantityMax, setMax: setFilterQuantityMax },
+                      { label: t('kpi_revenue'),       unit: 'MDL', min: filterRevenueMin,  setMin: setFilterRevenueMin,  max: filterRevenueMax,  setMax: setFilterRevenueMax },
+                      { label: t('kpi_gross_profit'),  unit: 'MDL', min: filterGrossMin,    setMin: setFilterGrossMin,    max: filterGrossMax,    setMax: setFilterGrossMax },
+                      { label: t('kpi_margin'),        unit: '%',   min: filterMarginMin,   setMin: setFilterMarginMin,   max: filterMarginMax,   setMax: setFilterMarginMax },
+                      { label: t('kpi_avg_check'),     unit: 'MDL', min: filterAvgCheckMin, setMin: setFilterAvgCheckMin, max: filterAvgCheckMax, setMax: setFilterAvgCheckMax },
+                      { label: t('kpi_checks'),        unit: '',    min: filterChecksMin,   setMin: setFilterChecksMin,   max: filterChecksMax,   setMax: setFilterChecksMax },
+                      { label: t('kpi_quantity'),      unit: '',    min: filterQuantityMin, setMin: setFilterQuantityMin, max: filterQuantityMax, setMax: setFilterQuantityMax },
                     ].map(f => (
                       <RangeDropdown key={f.label} label={f.label} unit={f.unit}
                         min={f.min} setMin={f.setMin} max={f.max} setMax={f.setMax}
-                        onApply={() => setPage(1)} />
+                        onApply={() => setPage(1)} t={t} />
                     ))}
                   </div>
                   {activeFilterCount > 0 && (
                     <div className="flex justify-end">
                       <button onClick={resetFilters}
                         className="text-sm text-red-400 hover:text-red-300 transition px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20">
-                        ✕ Сбросить все фильтры ({activeFilterCount})
+                        {`✕ ${t('filter_clear')} (${activeFilterCount})`}
                       </button>
                     </div>
                   )}
@@ -1554,7 +1566,7 @@ export default function Dashboard() {
 
             <div style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl border border-[var(--border)]">
               <div className="p-3 border-b border-[var(--border)] flex justify-between items-center">
-                <span className="text-[color:var(--text-muted)] text-sm">Найдено записей: <span className="text-[color:var(--text-primary)] font-medium">{total}</span></span>
+                <span className="text-[color:var(--text-muted)] text-sm">{t('table_found')} <span className="text-[color:var(--text-primary)] font-medium">{total}</span></span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -1603,7 +1615,7 @@ export default function Dashboard() {
               <div className="p-4 flex justify-between items-center border-t border-[var(--border)]">
                 <button disabled={page === 1} onClick={() => setPage(p => p-1)}
                   style={{ background: 'var(--bg-input)' }} className="px-4 py-2 rounded-lg disabled:opacity-50 hover:bg-[var(--bg-hover)] transition text-sm">← Назад</button>
-                <span className="text-[color:var(--text-muted)] text-sm">Стр. {page} из {Math.max(1, Math.ceil(total/15))}</span>
+                <span className="text-[color:var(--text-muted)] text-sm">{t('table_page')} {page} из {Math.max(1, Math.ceil(total/15))}</span>
                 <button disabled={page >= Math.ceil(total/15)} onClick={() => setPage(p => p+1)}
                   style={{ background: 'var(--bg-input)' }} className="px-4 py-2 rounded-lg disabled:opacity-50 hover:bg-[var(--bg-hover)] transition text-sm">Вперёд →</button>
               </div>
