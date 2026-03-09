@@ -2,4 +2,68 @@
 @tailwind components;
 @tailwind utilities;
 
-body { background: #111827; }
+/* ── Dark theme (default) ── */
+:root, [data-theme="dark"] {
+  --bg-base:        #111827;
+  --bg-card:        #1f2937;
+  --bg-input:       #374151;
+  --bg-hover:       #4b5563;
+  --border:         #374151;
+  --border-light:   #4b5563;
+  --text-primary:   #f9fafb;
+  --text-secondary: #d1d5db;
+  --text-muted:     #9ca3af;
+  --text-faint:     #6b7280;
+  --text-disabled:  #4b5563;
+  --nav-bg:         #1f2937;
+  --nav-border:     #374151;
+  --chart-grid:     #374151;
+  --chart-axis:     #9ca3af;
+  --scrollbar-thumb: #4b5563;
+  --shadow:         0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* ── Light theme ── */
+[data-theme="light"] {
+  --bg-base:        #f1f5f9;
+  --bg-card:        #ffffff;
+  --bg-input:       #e2e8f0;
+  --bg-hover:       #cbd5e1;
+  --border:         #e2e8f0;
+  --border-light:   #cbd5e1;
+  --text-primary:   #0f172a;
+  --text-secondary: #334155;
+  --text-muted:     #64748b;
+  --text-faint:     #94a3b8;
+  --text-disabled:  #cbd5e1;
+  --nav-bg:         #ffffff;
+  --nav-border:     #e2e8f0;
+  --chart-grid:     #e2e8f0;
+  --chart-axis:     #64748b;
+  --scrollbar-thumb: #cbd5e1;
+  --shadow:         0 1px 3px rgba(0,0,0,0.1);
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  transition: background 0.2s, color 0.2s;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+
+/* Select options in light theme */
+[data-theme="light"] select option {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+/* Input placeholders */
+input::placeholder { color: var(--text-faint); }
+
+/* Table rows hover */
+[data-theme="light"] .table-row-hover:hover { background: #f8fafc; }
+[data-theme="dark"] .table-row-hover:hover { background: #374151; }

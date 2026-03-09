@@ -39,7 +39,7 @@ function xlsxDownloadMulti(sheets: { name: string; rows: Record<string, any>[] }
 function DownloadBtn({ onClick, title }: { onClick: () => void; title?: string }) {
   return (
     <button onClick={onClick} title={title || 'Скачать Excel'}
-      className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-gray-700 hover:bg-green-700 text-gray-400 hover:text-white transition text-xs">
+      style={{ background: 'var(--bg-input)' }} className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-green-700 text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)] transition text-xs">
       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
       </svg>
@@ -59,7 +59,7 @@ function pct(a: number, b: number) {
   return (diff >= 0 ? '+' : '') + diff.toFixed(1).replace('.', ',') + ' %'
 }
 function pctColor(a: number, b: number) {
-  if (b === 0) return 'text-gray-400'
+  if (b === 0) return 'text-[color:var(--text-muted)]'
   return a >= b ? 'text-green-400' : 'text-red-400'
 }
 
@@ -139,8 +139,8 @@ function ChartBlock({
   const buildTooltip = () => ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null
     return (
-      <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: '10px 14px' }}>
-        <p style={{ color: '#fff', fontSize: 12, marginBottom: 6 }}>{label}</p>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px' }}>
+        <p style={{ color: 'var(--text-primary)', fontSize: 12, marginBottom: 6 }}>{label}</p>
         {payload.map((entry: any) => {
           const rawKey = entry.dataKey?.replace('__norm_', '')
           const realVal = normalize ? entry.payload[`__real_${rawKey}`] : entry.value
@@ -148,7 +148,7 @@ function ChartBlock({
           return (
             <p key={entry.dataKey} style={{ color: entry.color, fontSize: 12, margin: '2px 0' }}>
               {entry.name}: <strong>{met ? met.format(realVal ?? 0) : fmt(realVal ?? 0)}</strong>
-              {normalize && <span style={{ color: '#6b7280', fontSize: 11 }}> ({Number(entry.value).toFixed(0)}%)</span>}
+              {normalize && <span style={{ color: 'var(--text-faint)', fontSize: 11 }}> ({Number(entry.value).toFixed(0)}%)</span>}
             </p>
           )
         })}
@@ -200,9 +200,9 @@ function ChartBlock({
       if (config.chartType === 'line') return (
         <ResponsiveContainer width="100%" height={280}>
           <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey="key" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+            <XAxis dataKey="key" stroke="var(--chart-axis)" tick={{ fontSize: 11 }} />
+            <YAxis stroke="var(--chart-axis)" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
             <Tooltip content={buildTooltip()} />
             <Legend />
             {keys.map((k, i) => (
@@ -223,9 +223,9 @@ function ChartBlock({
       if (config.chartType === 'bar-horizontal') return (
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={data} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
-            <YAxis type="category" dataKey="key" stroke="#9ca3af" tick={{ fontSize: 10 }} width={80} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+            <XAxis type="number" stroke="var(--chart-axis)" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+            <YAxis type="category" dataKey="key" stroke="var(--chart-axis)" tick={{ fontSize: 10 }} width={80} />
             <Tooltip content={buildTooltip()} />
             <Legend />
             {keys.map((k, i) => (
@@ -245,9 +245,9 @@ function ChartBlock({
       return (
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey="key" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+            <XAxis dataKey="key" stroke="var(--chart-axis)" tick={{ fontSize: 11 }} />
+            <YAxis stroke="var(--chart-axis)" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
             <Tooltip content={buildTooltip()} />
             <Legend />
             {keys.map((k, i) => (
@@ -274,9 +274,9 @@ function ChartBlock({
     if (config.chartType === 'line') return (
       <ResponsiveContainer width="100%" height={280}>
         <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-          <XAxis dataKey="key" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-          <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+          <XAxis dataKey="key" stroke="var(--chart-axis)" tick={{ fontSize: 11 }} />
+          <YAxis stroke="var(--chart-axis)" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
           <Tooltip content={buildTooltip()} />
           <Legend />
           {config.metrics.map((m, i) => {
@@ -300,9 +300,9 @@ function ChartBlock({
     if (config.chartType === 'bar-horizontal') return (
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={data} layout="vertical">
-          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-          <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
-          <YAxis type="category" dataKey="key" stroke="#9ca3af" tick={{ fontSize: 10 }} width={80} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+          <XAxis type="number" stroke="var(--chart-axis)" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+          <YAxis type="category" dataKey="key" stroke="var(--chart-axis)" tick={{ fontSize: 10 }} width={80} />
           <Tooltip content={buildTooltip()} />
           <Legend />
           {config.metrics.map((m, i) => {
@@ -325,9 +325,9 @@ function ChartBlock({
     return (
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-          <XAxis dataKey="key" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-          <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+          <XAxis dataKey="key" stroke="var(--chart-axis)" tick={{ fontSize: 11 }} />
+          <YAxis stroke="var(--chart-axis)" tick={{ fontSize: 11 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
           <Tooltip content={buildTooltip()} />
           <Legend />
           {config.metrics.map((m, i) => {
@@ -350,16 +350,16 @@ function ChartBlock({
   }
 
   return (
-    <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
+    <div style={{ background: 'var(--bg-card)' }} className="rounded-xl p-5 border border-[var(--border)]">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           {(['bar','line','bar-horizontal'] as ChartType[]).map(t => (
             <button key={t} onClick={() => onUpdate({ ...config, chartType: t })}
-              className={`px-3 py-1 rounded text-xs font-medium transition ${config.chartType === t ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
+              className={`px-3 py-1 rounded text-xs font-medium transition ${config.chartType === t ? 'bg-blue-600' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)]'}`}>
               {t === 'bar' ? 'Bar' : t === 'line' ? 'Line' : 'Horizontal'}
             </button>
           ))}
-          <span className="text-gray-600 text-xs mx-1">|</span>
+          <span className="text-[color:var(--text-faint)] text-xs mx-1">|</span>
           {METRICS.map(m => (
             <button key={m.key}
               onClick={() => {
@@ -367,18 +367,18 @@ function ChartBlock({
                 const next = has ? config.metrics.filter(x => x !== m.key) : [...config.metrics, m.key]
                 if (next.length > 0) onUpdate({ ...config, metrics: next })
               }}
-              className={`px-2 py-1 rounded text-xs transition ${config.metrics.includes(m.key) ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
+              className={`px-2 py-1 rounded text-xs transition ${config.metrics.includes(m.key) ? 'bg-purple-600' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)]'}`}>
               {m.label}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer">
+          <label className="flex items-center gap-1.5 text-xs text-[color:var(--text-secondary)] cursor-pointer">
             <input type="checkbox" checked={showLabels} onChange={() => onUpdate({ ...config, showLabels: !showLabels })} className="accent-blue-500 w-3.5 h-3.5" />
             Значения
           </label>
           {config.chartType === 'line' && (
-            <label className="flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer">
+            <label className="flex items-center gap-1.5 text-xs text-[color:var(--text-secondary)] cursor-pointer">
               <input type="checkbox" checked={showDots} onChange={() => onUpdate({ ...config, showDots: !showDots })} className="accent-blue-500 w-3.5 h-3.5" />
               Точки
             </label>
@@ -387,7 +387,7 @@ function ChartBlock({
             <input type="checkbox" checked={normalize} onChange={() => onUpdate({ ...config, normalize: !normalize })} className="accent-amber-500 w-3.5 h-3.5" />
             Нормализация
           </label>
-          <button onClick={onRemove} className="text-gray-500 hover:text-red-400 text-sm transition">✕ Удалить</button>
+          <button onClick={onRemove} className="text-[color:var(--text-faint)] hover:text-red-400 text-sm transition">✕ Удалить</button>
         </div>
       </div>
       {renderChart()}
@@ -515,11 +515,11 @@ export default function Compare() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-[var(--bg-base)] text-[color:var(--text-primary)]">
       <Navbar active="compare" userRole={user?.role} rightSlot={
         <>
-          <span className="text-gray-400 text-sm">{user?.name}</span>
-          <button onClick={handleLogout} className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg text-sm transition">Выйти</button>
+          <span className="text-[color:var(--text-muted)] text-sm">{user?.name}</span>
+          <button onClick={handleLogout} style={{ background: 'var(--bg-input)' }} className="hover:bg-[var(--bg-hover)] px-3 py-1.5 rounded-lg text-sm transition">Выйти</button>
         </>
       } />
 
@@ -528,8 +528,8 @@ export default function Compare() {
 
         {/* Фильтры */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-            <h3 className="text-sm font-semibold mb-3 text-gray-300">Режим сравнения</h3>
+          <div style={{ background: 'var(--bg-card)' }} className="rounded-xl p-4 border border-[var(--border)]">
+            <h3 className="text-sm font-semibold mb-3 text-[color:var(--text-secondary)]">Режим сравнения</h3>
             <div className="space-y-2">
               {[
                 { val: 'store',       label: 'По магазинам' },
@@ -538,18 +538,18 @@ export default function Compare() {
                 { val: 'store-month', label: 'Магазин по месяцам' },
               ].map(m => (
                 <button key={m.val} onClick={() => setMode(m.val as any)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${mode === m.val ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${mode === m.val ? 'bg-blue-600' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)]'}`}>
                   {m.label}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-            <h3 className="text-sm font-semibold mb-3 text-gray-300">Магазины</h3>
+          <div style={{ background: 'var(--bg-card)' }} className="rounded-xl p-4 border border-[var(--border)]">
+            <h3 className="text-sm font-semibold mb-3 text-[color:var(--text-secondary)]">Магазины</h3>
             <div className="space-y-1 max-h-52 overflow-y-auto">
               {allStores.map(s => (
-                <label key={s} className="flex items-center gap-2 text-sm cursor-pointer hover:text-white text-gray-300 py-0.5">
+                <label key={s} className="flex items-center gap-2 text-sm cursor-pointer hover:text-[color:var(--text-primary)] text-[color:var(--text-secondary)] py-0.5">
                   <input type="checkbox" checked={selectedStores.includes(s)} onChange={() => toggleItem(selectedStores, setSelectedStores, s)} className="accent-blue-500" />
                   {s}
                 </label>
@@ -557,8 +557,8 @@ export default function Compare() {
             </div>
           </div>
 
-          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-            <h3 className={`text-sm font-semibold mb-3 ${mode === 'year' ? 'text-gray-600' : 'text-gray-300'}`}>
+          <div style={{ background: 'var(--bg-card)' }} className="rounded-xl p-4 border border-[var(--border)]">
+            <h3 className={`text-sm font-semibold mb-3 ${mode === 'year' ? 'text-[color:var(--text-faint)]' : 'text-[color:var(--text-secondary)]'}`}>
               Месяцы {mode === 'year' && <span className="text-xs font-normal">(недоступно в режиме «По годам»)</span>}
             </h3>
             <div className="grid grid-cols-3 gap-1 mb-4">
@@ -566,27 +566,27 @@ export default function Compare() {
                 <button key={i}
                   disabled={mode === 'year'}
                   onClick={() => toggleItem(selectedMonths, setSelectedMonths, i + 1)}
-                  className={`px-2 py-1 rounded text-xs transition ${mode === 'year' ? 'opacity-30 cursor-not-allowed' : selectedMonths.includes(i + 1) ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
+                  className={`px-2 py-1 rounded text-xs transition ${mode === 'year' ? 'opacity-30 cursor-not-allowed' : selectedMonths.includes(i + 1) ? 'bg-blue-600' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)]'}`}>
                   {m}
                 </button>
               ))}
             </div>
-            <h3 className="text-sm font-semibold mb-2 text-gray-300">Годы</h3>
+            <h3 className="text-sm font-semibold mb-2 text-[color:var(--text-secondary)]">Годы</h3>
             <div className="flex flex-wrap gap-1">
               {allYears.map(y => (
                 <button key={y} onClick={() => toggleItem(selectedYears, setSelectedYears, y)}
-                  className={`px-3 py-1 rounded text-xs transition ${selectedYears.includes(y) ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
+                  className={`px-3 py-1 rounded text-xs transition ${selectedYears.includes(y) ? 'bg-blue-600' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)]'}`}>
                   {y}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-            <h3 className="text-sm font-semibold mb-3 text-gray-300">Показатели</h3>
+          <div style={{ background: 'var(--bg-card)' }} className="rounded-xl p-4 border border-[var(--border)]">
+            <h3 className="text-sm font-semibold mb-3 text-[color:var(--text-secondary)]">Показатели</h3>
             <div className="space-y-2">
               {METRICS.map(m => (
-                <label key={m.key} className="flex items-center gap-2 text-sm cursor-pointer hover:text-white text-gray-300">
+                <label key={m.key} className="flex items-center gap-2 text-sm cursor-pointer hover:text-[color:var(--text-primary)] text-[color:var(--text-secondary)]">
                   <input type="checkbox" checked={selectedMetrics.includes(m.key)} onChange={() => toggleItem(selectedMetrics, setSelectedMetrics, m.key)} className="accent-blue-500" />
                   {m.label}
                 </label>
@@ -599,9 +599,9 @@ export default function Compare() {
             {rawFlatResults.length >= 2 && (
               <button onClick={() => setBaseIndex(i => i === 0 ? 1 : 0)}
                 title="Поменять базу сравнения"
-                className="w-full mt-2 flex items-center justify-center gap-2 bg-gray-700 hover:bg-amber-700 py-2 rounded-lg text-sm transition text-gray-300 hover:text-white">
-                ⇄ База: <span className="font-medium text-white">{flatResults[0]?.key}</span>
-                <span className="text-gray-500">→</span>
+                style={{ background: 'var(--bg-input)' }} className="w-full mt-2 flex items-center justify-center gap-2 hover:bg-amber-700 py-2 rounded-lg text-sm transition text-[color:var(--text-secondary)] hover:text-[color:var(--text-primary)]">
+                ⇄ База: <span className="font-medium text-[color:var(--text-primary)]">{flatResults[0]?.key}</span>
+                <span className="text-[color:var(--text-faint)]">→</span>
                 <span className="text-amber-400">{flatResults[flatResults.length - 1]?.key}</span>
               </button>
             )}
@@ -612,11 +612,11 @@ export default function Compare() {
           <>
             {/* Таблица — обычный режим */}
             {!isStoreMonthMode && (
-              <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-x-auto">
+              <div style={{ background: 'var(--bg-card)' }} className="rounded-xl border border-[var(--border)] overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-700/50">
+                  <thead style={{ background: 'var(--bg-input)' }} className="/50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-gray-400 font-medium">Показатель</th>
+                      <th className="px-4 py-3 text-left text-[color:var(--text-muted)] font-medium">Показатель</th>
                       {flatResults.map((r: any, i: number) => (
                         <th key={i} className="px-4 py-3 text-left font-medium" style={{ color: COLORS[i % COLORS.length] }}>{r.key}</th>
                       ))}
@@ -624,8 +624,8 @@ export default function Compare() {
                   </thead>
                   <tbody className="divide-y divide-gray-700">
                     {METRICS.filter(m => selectedMetrics.includes(m.key)).map(metric => (
-                      <tr key={metric.key} className="hover:bg-gray-700/30 transition">
-                        <td className="px-4 py-3 text-gray-400 font-medium">{metric.label}</td>
+                      <tr key={metric.key} className="hover:bg-[var(--bg-hover)]/30 transition">
+                        <td className="px-4 py-3 text-[color:var(--text-muted)] font-medium">{metric.label}</td>
                         {flatResults.map((r: any, i: number) => (
                           <td key={i} className="px-4 py-3">
                             <div className="font-medium">{metric.format(r[metric.key] ?? 0)}</div>
@@ -640,7 +640,7 @@ export default function Compare() {
                     ))}
                   </tbody>
                 </table>
-                <div className="flex justify-end p-3 border-t border-gray-700">
+                <div className="flex justify-end p-3 border-t border-[var(--border)]">
                   <DownloadBtn onClick={downloadTable} title="Скачать таблицу сравнения" />
                 </div>
               </div>
@@ -648,12 +648,12 @@ export default function Compare() {
 
             {/* Таблица — store-month */}
             {isStoreMonthMode && storeMonthData && (
-              <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-x-auto">
+              <div style={{ background: 'var(--bg-card)' }} className="rounded-xl border border-[var(--border)] overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-700/50">
+                  <thead style={{ background: 'var(--bg-input)' }} className="/50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-gray-400 font-medium">Период</th>
-                      <th className="px-4 py-3 text-left text-gray-400 font-medium">Показатель</th>
+                      <th className="px-4 py-3 text-left text-[color:var(--text-muted)] font-medium">Период</th>
+                      <th className="px-4 py-3 text-left text-[color:var(--text-muted)] font-medium">Показатель</th>
                       {storeMonthData.stores.map((s: string, i: number) => (
                         <th key={i} className="px-4 py-3 text-left font-medium" style={{ color: COLORS[i % COLORS.length] }}>{s}</th>
                       ))}
@@ -662,13 +662,13 @@ export default function Compare() {
                   <tbody className="divide-y divide-gray-700">
                     {storeMonthData.rows.map((row: any) =>
                       METRICS.filter(m => selectedMetrics.includes(m.key)).map((metric, mi) => (
-                        <tr key={`${row.period}-${metric.key}`} className="hover:bg-gray-700/30 transition">
+                        <tr key={`${row.period}-${metric.key}`} className="hover:bg-[var(--bg-hover)]/30 transition">
                           {mi === 0 && (
-                            <td className="px-4 py-3 text-gray-400 font-medium align-top" rowSpan={selectedMetrics.length}>
+                            <td className="px-4 py-3 text-[color:var(--text-muted)] font-medium align-top" rowSpan={selectedMetrics.length}>
                               {row.period}
                             </td>
                           )}
-                          <td className="px-4 py-3 text-gray-500 text-xs">{metric.label}</td>
+                          <td className="px-4 py-3 text-[color:var(--text-faint)] text-xs">{metric.label}</td>
                           {storeMonthData.stores.map((s: string, si: number) => {
                             const cell = row[s] || { revenue: 0, grossProfit: 0, quantity: 0, checks: 0 }
                             let val = 0
@@ -692,7 +692,7 @@ export default function Compare() {
                     )}
                   </tbody>
                 </table>
-                <div className="flex justify-end p-3 border-t border-gray-700">
+                <div className="flex justify-end p-3 border-t border-[var(--border)]">
                   <DownloadBtn onClick={downloadTable} title="Скачать таблицу сравнения" />
                 </div>
               </div>
@@ -700,11 +700,11 @@ export default function Compare() {
 
             {/* Графики */}
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-300">Графики</h3>
+              <h3 className="font-semibold text-[color:var(--text-secondary)]">Графики</h3>
               <div className="flex items-center gap-2">
                 {charts.length > 0 && (
                   <button onClick={downloadAllCharts} title="Скачать все графики"
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800 hover:bg-green-700 text-gray-400 hover:text-white transition text-sm border border-gray-700">
+                    style={{ background: 'var(--bg-card)' }} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-green-700 text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)] transition text-sm border border-[var(--border)]">
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
                     </svg>
@@ -720,7 +720,7 @@ export default function Compare() {
                     showDots: false,
                     normalize: false
                   }])}
-                  className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition"
+                  style={{ background: 'var(--bg-input)' }} className="hover:bg-[var(--bg-hover)] px-4 py-2 rounded-lg text-sm transition"
                 >
                   + Добавить график
                 </button>
@@ -741,16 +741,16 @@ export default function Compare() {
             ))}
 
             {charts.length === 0 && (
-              <div className="bg-gray-800/50 rounded-xl p-6 border border-dashed border-gray-600 text-center text-gray-500 text-sm">
-                Нажмите <span className="text-white">+ Добавить график</span> чтобы визуализировать данные
+              <div style={{ background: 'var(--bg-card)' }} className="/50 rounded-xl p-6 border border-dashed border-[var(--border)] text-center text-[color:var(--text-faint)] text-sm">
+                Нажмите <span className="text-[color:var(--text-primary)]">+ Добавить график</span> чтобы визуализировать данные
               </div>
             )}
           </>
         )}
 
         {!hasResults && !loading && (
-          <div className="bg-gray-800 rounded-xl p-10 border border-gray-700 text-center text-gray-400">
-            Выберите параметры и нажмите <span className="text-white font-medium">▶ Сравнить</span>
+          <div style={{ background: 'var(--bg-card)' }} className="rounded-xl p-10 border border-[var(--border)] text-center text-[color:var(--text-muted)]">
+            Выберите параметры и нажмите <span className="text-[color:var(--text-primary)] font-medium">▶ Сравнить</span>
           </div>
         )}
       </div>

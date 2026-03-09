@@ -48,7 +48,7 @@ function xlsxDownloadMulti(sheets: { name: string; rows: Record<string, any>[] }
 function DownloadBtn({ onClick, title }: { onClick: () => void; title?: string }) {
   return (
     <button onClick={onClick} title={title || 'Скачать Excel'}
-      className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-gray-700 hover:bg-green-700 text-gray-400 hover:text-white transition text-xs">
+      style={{ background: 'var(--bg-input)' }} className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-green-700 text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)] transition text-xs">
       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
       </svg>
@@ -65,15 +65,15 @@ function fmtShort(n: number) { return fmtNum(n) }
 function fmtPct(n: number) { return `${n.toFixed(1).replace('.', ',')} %` }
 
 type ChartType = 'line' | 'bar' | 'bar-horizontal'
-const ttStyle = { background: '#1f2937', border: '1px solid #374151', fontSize: 13 }
-const ttProps = { contentStyle: ttStyle, labelStyle: { color: '#fff', fontSize: 13 }, itemStyle: { color: '#fff', fontSize: 13 } }
+const ttStyle = { background: 'var(--bg-card)', border: '1px solid var(--border)', fontSize: 13 }
+const ttProps = { contentStyle: ttStyle, labelStyle: { color: 'var(--text-primary)', fontSize: 13 }, itemStyle: { color: 'var(--text-primary)', fontSize: 13 } }
 
 function ChartTypeSwitcher({ value, onChange }: { value: ChartType; onChange: (t: ChartType) => void }) {
   return (
     <div className="flex gap-1">
       {(['line','bar','bar-horizontal'] as ChartType[]).map(t => (
         <button key={t} onClick={() => onChange(t)}
-          className={`px-3 py-1.5 rounded text-sm transition ${value === t ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>
+          className={`px-3 py-1.5 rounded text-sm transition ${value === t ? 'bg-blue-600 text-[color:var(--text-primary)]' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] text-[color:var(--text-secondary)]'}`}>
           {t === 'line' ? 'Линейный' : t === 'bar' ? 'Столбцы' : 'Горизонтальные'}
         </button>
       ))}
@@ -108,17 +108,17 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
   const xInterval = Math.floor(data.length / 10)
 
   return (
-    <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+    <div style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl p-6 border border-[var(--border)]">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <h3 className="font-semibold text-lg">{title}</h3>
         <div className="flex items-center gap-3 flex-wrap">
           <ChartTypeSwitcher value={chartType} onChange={setChartType} />
-          <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
             <input type="checkbox" checked={showLabels} onChange={() => setShowLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
             Значения
           </label>
           {chartType === 'line' && (
-            <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
               <input type="checkbox" checked={showDots} onChange={() => setShowDots(v => !v)} className="accent-blue-500 w-4 h-4" />
               Точки
             </label>
@@ -126,7 +126,7 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
           {extraControls}
           {chartType === 'bar-horizontal' && data.length > 10 && (
             <button onClick={() => setShowAllHorizontal(!showAllHorizontal)}
-              className="px-3 py-1.5 rounded text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 transition">
+              style={{ background: 'var(--bg-input)' }} className="px-3 py-1.5 rounded text-sm hover:bg-[var(--bg-hover)] text-[color:var(--text-primary)] transition">
               {showAllHorizontal ? 'Свернуть до топ-10' : 'Показать все'}
             </button>
           )}
@@ -135,9 +135,9 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
       <ResponsiveContainer width="100%" height={dynamicHeight}>
         {chartType === 'line' ? (
           <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
-            <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+            <XAxis dataKey={xKey} stroke="var(--chart-axis)" tick={{ fontSize: 12 }} interval={xInterval} />
+            <YAxis stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
             <Tooltip formatter={(v: any) => formatTooltip(Number(v))} {...ttProps} />
             <Legend wrapperStyle={{ fontSize: 13 }} />
             <Line type="monotone" dataKey={dataKey} name={title} stroke={color} strokeWidth={2.5}
@@ -145,18 +145,18 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
           </LineChart>
         ) : chartType === 'bar' ? (
           <BarChart data={data} margin={chartMargin}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
-            <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+            <XAxis dataKey={xKey} stroke="var(--chart-axis)" tick={{ fontSize: 12 }} interval={xInterval} />
+            <YAxis stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
             <Tooltip formatter={(v: any) => formatTooltip(Number(v))} {...ttProps} />
             <Legend wrapperStyle={{ fontSize: 13 }} />
             <Bar dataKey={dataKey} name={title} fill={color} radius={[5,5,0,0]}>{labelEl}</Bar>
           </BarChart>
         ) : (
           <BarChart data={preparedData} layout="vertical" barSize={barSize} barCategoryGap={8}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
-            <YAxis type="category" dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} width={80} interval={0} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+            <XAxis type="number" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+            <YAxis type="category" dataKey={xKey} stroke="var(--chart-axis)" tick={{ fontSize: 12 }} width={80} interval={0} />
             <Tooltip formatter={(v: any) => formatTooltip(Number(v))} {...ttProps} />
             <Legend wrapperStyle={{ fontSize: 13 }} />
             <Bar dataKey={dataKey} name={title} fill={color} radius={[0,6,6,0]} stroke="#64748b" strokeWidth={strokeWidth}>{labelEl}</Bar>
@@ -218,9 +218,9 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
   }
 
   if (metrics.length === 0) return (
-    <div className="bg-gray-800 rounded-xl p-6 border border-dashed border-gray-600">
+    <div style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl p-6 border border-dashed border-[var(--border)]">
       <h3 className="font-semibold text-lg mb-3">{title}</h3>
-      <p className="text-gray-500 text-sm text-center py-6">
+      <p className="text-[color:var(--text-faint)] text-sm text-center py-6">
         {emptyMessage || 'Данные появятся после добавления дополнительных полей'}
       </p>
     </div>
@@ -229,8 +229,8 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
   const tooltipEl = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null
     return (
-      <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: '10px 14px' }}>
-        <p style={{ color: '#fff', fontSize: 13, marginBottom: 6 }}>{label}</p>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px' }}>
+        <p style={{ color: 'var(--text-primary)', fontSize: 13, marginBottom: 6 }}>{label}</p>
         {payload.map((entry: any) => {
           const m = metrics.find(x => x.name === entry.name)
           const realVal = normalize ? entry.payload[m?.key || ''] : entry.value
@@ -251,9 +251,9 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
 
   const axes = (
     <>
-      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-      <XAxis dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
-      <YAxis yAxisId="left" stroke="#9ca3af" tick={{ fontSize: 12 }}
+      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+      <XAxis dataKey={xKey} stroke="var(--chart-axis)" tick={{ fontSize: 12 }} interval={xInterval} />
+      <YAxis yAxisId="left" stroke="var(--chart-axis)" tick={{ fontSize: 12 }}
         tickFormatter={v => normalize ? `${v.toFixed(0)}%` : fmtShort(v)}
         domain={normalize ? [0, 100] : undefined} />
       {dualAxis && !normalize && (
@@ -267,11 +267,11 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
 
   const axesHorizontal = (
     <>
-      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-      <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }}
+      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+      <XAxis type="number" stroke="var(--chart-axis)" tick={{ fontSize: 12 }}
         tickFormatter={v => normalize ? `${Number(v).toFixed(0)}%` : fmtShort(v)}
         domain={normalize ? [0, 100] : undefined} />
-      <YAxis type="category" dataKey={xKey} stroke="#9ca3af" tick={{ fontSize: 12 }} width={80} interval={0} />
+      <YAxis type="category" dataKey={xKey} stroke="var(--chart-axis)" tick={{ fontSize: 12 }} width={80} interval={0} />
       <Tooltip content={tooltipEl} />
       <Legend wrapperStyle={{ fontSize: 13 }} />
     </>
@@ -287,7 +287,7 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
   const chartDataKey = (m: { key: string }) => normalize ? `__norm_${m.key}` : m.key
 
   return (
-    <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+    <div style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl p-6 border border-[var(--border)]">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <h3 className="font-semibold text-lg">{title}</h3>
         <div className="flex items-center gap-3 flex-wrap">
@@ -295,19 +295,19 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
           {metrics.map(m => (
             <button key={m.key} onClick={() => toggle(m.key)}
               style={{
-                background: active.includes(m.key) ? m.color + '22' : '#374151',
-                color: active.includes(m.key) ? m.color : '#d1d5db',
+                background: active.includes(m.key) ? m.color + '22' : 'var(--bg-input)',
+                color: active.includes(m.key) ? m.color : 'var(--text-secondary)',
                 border: `1px solid ${active.includes(m.key) ? m.color : 'transparent'}`
               }}
               className="px-3 py-1.5 rounded text-sm transition">{m.name}
             </button>
           ))}
-          <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
             <input type="checkbox" checked={showLabels} onChange={() => setShowLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
             Значения
           </label>
           {chartType === 'line' && (
-            <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
               <input type="checkbox" checked={showDots} onChange={() => setShowDots(v => !v)} className="accent-blue-500 w-4 h-4" />
               Точки
             </label>
@@ -315,7 +315,7 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
           {extraControls}
           {chartType === 'bar-horizontal' && data.length > 10 && (
             <button onClick={() => setShowAllHorizontal(!showAllHorizontal)}
-              className="px-3 py-1.5 rounded text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 transition">
+              style={{ background: 'var(--bg-input)' }} className="px-3 py-1.5 rounded text-sm hover:bg-[var(--bg-hover)] text-[color:var(--text-primary)] transition">
               {showAllHorizontal ? 'Свернуть до топ-10' : 'Показать все'}
             </button>
           )}
@@ -373,8 +373,8 @@ function MultiMetricChart({ title, data, xKey, metrics, emptyMessage, filename, 
 function SortTh({ col, label, sortBy, sortDir, onSort }: { col: string; label: string; sortBy: string; sortDir: 'asc'|'desc'; onSort: (col: string) => void }) {
   return (
     <th onClick={() => onSort(col)}
-      className="px-4 py-3 text-left text-gray-400 font-medium whitespace-nowrap cursor-pointer select-none hover:text-white transition">
-      {label} {sortBy === col ? (sortDir === 'asc' ? '↑' : '↓') : <span className="text-gray-600">↕</span>}
+      className="px-4 py-3 text-left text-[color:var(--text-muted)] font-medium whitespace-nowrap cursor-pointer select-none hover:text-[color:var(--text-primary)] transition">
+      {label} {sortBy === col ? (sortDir === 'asc' ? '↑' : '↓') : <span className="text-[color:var(--text-faint)]">↕</span>}
     </th>
   )
 }
@@ -393,17 +393,17 @@ function StoreDropdown({ stores, selected, onChange }: { stores: string[]; selec
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(v => !v)}
         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm border transition
-          ${selected.length > 0 ? 'bg-blue-600/20 border-blue-500 text-white' : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'}`}>
+          ${selected.length > 0 ? 'bg-blue-600/20 border-blue-500 text-[color:var(--text-primary)]' : 'bg-[var(--bg-input)] border-[var(--border)] text-[color:var(--text-secondary)] hover:bg-[var(--bg-hover)]'}`}>
         <span>{selected.length > 0 ? `Выбрано: ${selected.length}` : 'Все магазины'}</span>
-        <span className="text-gray-400 ml-2">{open ? '▲' : '▼'}</span>
+        <span className="text-[color:var(--text-muted)] ml-2">{open ? '▲' : '▼'}</span>
       </button>
       {open && (
-        <div className="absolute z-50 mt-1 w-full min-w-[200px] bg-gray-800 border border-gray-600 rounded-xl shadow-2xl p-2 space-y-0.5 max-h-64 overflow-y-auto">
-          <button onClick={() => onChange([])} className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:bg-gray-700 transition">
+        <div style={{ background: 'var(--bg-card)' }} className="absolute z-50 mt-1 w-full min-w-[200px] border border-[var(--border)] rounded-xl shadow-2xl p-2 space-y-0.5 max-h-64 overflow-y-auto">
+          <button onClick={() => onChange([])} className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-[color:var(--text-muted)] hover:bg-[var(--bg-hover)] transition">
             Снять все
           </button>
           {stores.map(s => (
-            <label key={s} className="flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-gray-700 transition text-sm text-gray-200">
+            <label key={s} className="flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-[var(--bg-hover)] transition text-sm text-[color:var(--text-primary)]">
               <input type="checkbox" className="accent-blue-500" checked={selected.includes(s)} onChange={() => toggle(s)} />
               {s}
             </label>
@@ -460,43 +460,43 @@ function RangeDropdown({ label, unit, min, setMin, max, setMax, onApply }: {
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(v => !v)}
         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition
-          ${isActive ? 'bg-blue-600/20 border-blue-500 text-white' : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'}`}>
+          ${isActive ? 'bg-blue-600/20 border-blue-500 text-[color:var(--text-primary)]' : 'bg-[var(--bg-input)] border-[var(--border)] text-[color:var(--text-secondary)] hover:bg-[var(--bg-hover)]'}`}>
         <span className="truncate">{displayLabel}</span>
-        <span className="text-gray-400 ml-1 shrink-0">{open ? '▲' : '▼'}</span>
+        <span className="text-[color:var(--text-muted)] ml-1 shrink-0">{open ? '▲' : '▼'}</span>
       </button>
       {open && (
-        <div className="absolute z-50 mt-1 left-0 w-64 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl p-4 space-y-3">
-          <p className="text-xs text-gray-400 font-medium">{label}{unit ? ` (${unit})` : ''}</p>
+        <div style={{ background: 'var(--bg-card)' }} className="absolute z-50 mt-1 left-0 w-64 border border-[var(--border)] rounded-xl shadow-2xl p-4 space-y-3">
+          <p className="text-xs text-[color:var(--text-muted)] font-medium">{label}{unit ? ` (${unit})` : ''}</p>
           <div className="space-y-2">
             <div className="relative">
               <input type="number" placeholder="От" value={min}
                 onFocus={() => setFocusedField('min')}
                 onChange={e => { setMin(e.target.value); onApply() }}
-                className={`w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm outline-none transition
+                className={`w-full bg-[var(--bg-input)] text-[color:var(--text-primary)] rounded-lg px-3 py-2 text-sm outline-none transition
                   ${focusedField === 'min' ? 'ring-2 ring-blue-500' : 'ring-1 ring-gray-600'}`} />
-              {unit && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">{unit}</span>}
+              {unit && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[color:var(--text-muted)] text-xs pointer-events-none">{unit}</span>}
             </div>
             <div className="relative">
               <input type="number" placeholder="До" value={max}
                 onFocus={() => setFocusedField('max')}
                 onChange={e => { setMax(e.target.value); onApply() }}
-                className={`w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm outline-none transition
+                className={`w-full bg-[var(--bg-input)] text-[color:var(--text-primary)] rounded-lg px-3 py-2 text-sm outline-none transition
                   ${focusedField === 'max' ? 'ring-2 ring-blue-500' : 'ring-1 ring-gray-600'}`} />
-              {unit && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">{unit}</span>}
+              {unit && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[color:var(--text-muted)] text-xs pointer-events-none">{unit}</span>}
             </div>
           </div>
           <div>
-            <p className="text-xs text-gray-500 mb-1.5">
+            <p className="text-xs text-[color:var(--text-faint)] mb-1.5">
               {focusedField ? `Быстрый выбор → ${focusedField === 'min' ? 'От' : 'До'}` : 'Выберите поле выше'}
             </p>
             <div className="flex flex-wrap gap-1">
               {presets.map(p => (
                 <button key={p.value} onClick={() => applyPreset(p.value)} disabled={!focusedField}
                   className={`px-2 py-1 rounded text-xs transition
-                    ${!focusedField ? 'bg-gray-700/50 text-gray-600 cursor-not-allowed' :
+                    ${!focusedField ? 'bg-[var(--bg-input)]/50 text-[color:var(--text-faint)] cursor-not-allowed' :
                       (focusedField === 'min' ? min === p.value : max === p.value)
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-700 hover:bg-blue-600/40 text-gray-300 hover:text-white'}`}>
+                        ? 'bg-blue-600 text-[color:var(--text-primary)]'
+                        : 'bg-[var(--bg-input)] hover:bg-blue-600/40 text-[color:var(--text-secondary)] hover:text-[color:var(--text-primary)]'}`}>
                   {p.label}
                 </button>
               ))}
@@ -739,16 +739,16 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-[var(--bg-base)] text-[color:var(--text-primary)]">
       <Navbar active="dashboard" userRole={user?.role} rightSlot={
         <>
           <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); setPage(1) }}
-            className={`text-white text-sm px-3 py-1.5 rounded-lg border transition ${selectedStore ? 'bg-blue-700 border-blue-500' : 'bg-gray-700 border-gray-600'}`}>
+            className={`text-[color:var(--text-primary)] text-sm px-3 py-1.5 rounded-lg border transition ${selectedStore ? 'bg-blue-700 border-blue-500' : 'bg-[var(--bg-input)] border-[var(--border)]'}`}>
             <option value="">Все магазины</option>
             {allStores.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <select value={selectedYear} onChange={e => { setSelectedYear(e.target.value); setPage(1) }}
-            className="bg-gray-700 text-white text-sm px-3 py-1.5 rounded-lg border border-gray-600">
+            style={{ background: 'var(--bg-input)' }} className="text-[color:var(--text-primary)] text-sm px-3 py-1.5 rounded-lg border border-[var(--border)]">
             <option value="">Все годы</option>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
@@ -756,8 +756,8 @@ export default function Dashboard() {
             className="bg-green-600 hover:bg-green-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition">
             {syncing ? '⟳ Синхронизация...' : 'Sync Google Sheets'}
           </button>
-          <span className="text-gray-400 text-sm">{user?.name}</span>
-          <button onClick={handleLogout} className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg text-sm transition">Выйти</button>
+          <span className="text-[color:var(--text-muted)] text-sm">{user?.name}</span>
+          <button onClick={handleLogout} style={{ background: 'var(--bg-input)' }} className="hover:bg-[var(--bg-hover)] px-3 py-1.5 rounded-lg text-sm transition">Выйти</button>
         </>
       } />
       {syncResult && <SyncNotification result={syncResult} onClose={() => setSyncResult(null)} />}
@@ -772,8 +772,8 @@ export default function Dashboard() {
         {kpi && (
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
             {kpiCards.map((k, i) => (
-              <div key={i} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-                <p className="text-gray-400 text-xs">{k.label}</p>
+              <div key={i} style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl p-4 border border-[var(--border)]">
+                <p className="text-[color:var(--text-muted)] text-xs">{k.label}</p>
                 <p className={`text-2xl font-bold mt-1 ${k.color}`}>{k.value}</p>
               </div>
             ))}
@@ -784,13 +784,13 @@ export default function Dashboard() {
           <div className="flex gap-2">
             {[{ id: 'overview', label: 'Тренды' }, { id: 'breakdown', label: 'Разбивка' }, { id: 'stores', label: 'По магазинам' }, { id: 'table', label: 'Таблица' }].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === tab.id ? 'bg-blue-600' : 'bg-gray-800 hover:bg-gray-700'}`}>
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === tab.id ? 'bg-blue-600' : 'bg-[var(--bg-card)] hover:bg-[var(--bg-hover)]'}`}>
                 {tab.label}
               </button>
             ))}
           </div>
           <button onClick={() => tabDownloadMap[activeTab]?.()}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800 hover:bg-green-700 text-gray-400 hover:text-white transition text-sm border border-gray-700">
+            style={{ background: 'var(--bg-card)' }} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-green-700 text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)] transition text-sm border border-[var(--border)]">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
             </svg>
@@ -875,8 +875,8 @@ export default function Dashboard() {
               const tooltipContent = ({ active, payload, label }: any) => {
                 if (!active || !payload?.length) return null
                 return (
-                  <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: '10px 14px' }}>
-                    <p style={{ color: '#fff', fontSize: 13, marginBottom: 6 }}>{label}</p>
+                  <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px' }}>
+                    <p style={{ color: 'var(--text-primary)', fontSize: 13, marginBottom: 6 }}>{label}</p>
                     {payload.map((entry: any) => {
                       const rawKey = entry.dataKey?.replace('__norm_', '')
                       const met = FLEX_METRICS.find(x => x.key === rawKey)
@@ -889,7 +889,7 @@ export default function Dashboard() {
                       return (
                         <p key={entry.dataKey} style={{ color: entry.color, fontSize: 13, margin: '2px 0' }}>
                           {entry.name}: <strong>{formatted}</strong>
-                          {normalize && <span style={{ color: '#6b7280', fontSize: 11 }}> ({Number(entry.value).toFixed(0)} %)</span>}
+                          {normalize && <span style={{ color: 'var(--text-faint)', fontSize: 11 }}> ({Number(entry.value).toFixed(0)} %)</span>}
                         </p>
                       )
                     })}
@@ -915,10 +915,10 @@ export default function Dashboard() {
                   return (
                     <ResponsiveContainer width="100%" height={340}>
                       <LineChart data={lineData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                        <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: cfg.sortMode === 'value' ? 10 : 12 }} interval={cfg.sortMode === 'value' ? 0 : xInterval} angle={cfg.sortMode === 'value' ? -35 : 0} textAnchor={cfg.sortMode === 'value' ? 'end' : 'middle'} height={cfg.sortMode === 'value' ? 60 : 30} />
-                        <YAxis yAxisId="left" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
-                        {hasDual && <YAxis yAxisId="right" orientation="right" stroke="#6b7280" tick={{ fontSize: 12 }} tickFormatter={yFmtRight} />}
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                        <XAxis dataKey="label" stroke="var(--chart-axis)" tick={{ fontSize: cfg.sortMode === 'value' ? 10 : 12 }} interval={cfg.sortMode === 'value' ? 0 : xInterval} angle={cfg.sortMode === 'value' ? -35 : 0} textAnchor={cfg.sortMode === 'value' ? 'end' : 'middle'} height={cfg.sortMode === 'value' ? 60 : 30} />
+                        <YAxis yAxisId="left" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+                        {hasDual && <YAxis yAxisId="right" orientation="right" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={yFmtRight} />}
                         <Tooltip content={tooltipContent} />
                         <Legend wrapperStyle={{ fontSize: 13 }} />
                         {renderLines()}
@@ -946,15 +946,15 @@ export default function Dashboard() {
                     return (
                       <ResponsiveContainer width="100%" height={340}>
                         <BarChart data={valueData} margin={{ top: showLabels ? 24 : 4, right: 10, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                          <XAxis dataKey="idx" stroke="#9ca3af" tick={{ fontSize: 12 }} />
-                          <YAxis yAxisId="left" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={yFmt} />
-                          {hasDual && <YAxis yAxisId="right" orientation="right" stroke="#6b7280" tick={{ fontSize: 12 }} tickFormatter={yFmtRight} />}
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                          <XAxis dataKey="idx" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} />
+                          <YAxis yAxisId="left" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={yFmt} />
+                          {hasDual && <YAxis yAxisId="right" orientation="right" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={yFmtRight} />}
                           <Tooltip content={({ active, payload, label }: any) => {
                             if (!active || !payload?.length) return null
                             return (
-                              <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: '10px 14px' }}>
-                                <p style={{ color: '#9ca3af', fontSize: 12, marginBottom: 6 }}>#{label}</p>
+                              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px' }}>
+                                <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 6 }}>#{label}</p>
                                 {payload.map((entry: any) => {
                                   const met = FLEX_METRICS.find(x => x.key === entry.dataKey)
                                   const formatted = met?.isPercent
@@ -964,7 +964,7 @@ export default function Dashboard() {
                                   return (
                                     <p key={entry.dataKey} style={{ color: entry.color, fontSize: 13, margin: '2px 0' }}>
                                       {entry.name}: <strong>{formatted}</strong>
-                                      <span style={{ color: '#6b7280', fontSize: 11 }}> ({periodLabel})</span>
+                                      <span style={{ color: 'var(--text-faint)', fontSize: 11 }}> ({periodLabel})</span>
                                     </p>
                                   )
                                 })}
@@ -984,10 +984,10 @@ export default function Dashboard() {
                   return (
                     <ResponsiveContainer width="100%" height={340}>
                       <BarChart data={chartData} margin={{ top: showLabels ? 24 : 4, right: 10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                        <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
-                        <YAxis yAxisId="left" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
-                        {hasDual && <YAxis yAxisId="right" orientation="right" stroke="#6b7280" tick={{ fontSize: 12 }} tickFormatter={yFmtRight} />}
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                        <XAxis dataKey="label" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} interval={xInterval} />
+                        <YAxis yAxisId="left" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+                        {hasDual && <YAxis yAxisId="right" orientation="right" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={yFmtRight} />}
                         <Tooltip content={tooltipContent} />
                         <Legend wrapperStyle={{ fontSize: 13 }} />
                         {activeMetrics.map(m => (
@@ -1020,14 +1020,14 @@ export default function Dashboard() {
                       <>
                         <ResponsiveContainer width="100%" height={100 + displayed.length * 45}>
                           <BarChart data={displayed} layout="vertical" barCategoryGap={8} margin={{ right: showLabels ? 60 : 10 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                            <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={yFmt} />
-                            <YAxis type="category" dataKey="idx" stroke="#9ca3af" tick={{ fontSize: 12 }} width={30} interval={0} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                            <XAxis type="number" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={yFmt} />
+                            <YAxis type="category" dataKey="idx" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} width={30} interval={0} />
                             <Tooltip content={({ active, payload, label }: any) => {
                               if (!active || !payload?.length) return null
                               return (
-                                <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: '10px 14px' }}>
-                                  <p style={{ color: '#9ca3af', fontSize: 12, marginBottom: 6 }}>#{label}</p>
+                                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px' }}>
+                                  <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 6 }}>#{label}</p>
                                   {payload.map((entry: any) => {
                                     const met = FLEX_METRICS.find(x => x.key === entry.dataKey)
                                     const formatted = met?.isPercent
@@ -1037,7 +1037,7 @@ export default function Dashboard() {
                                     return (
                                       <p key={entry.dataKey} style={{ color: entry.color, fontSize: 13, margin: '2px 0' }}>
                                         {entry.name}: <strong>{formatted}</strong>
-                                        <span style={{ color: '#6b7280', fontSize: 11 }}> ({periodLabel})</span>
+                                        <span style={{ color: 'var(--text-faint)', fontSize: 11 }}> ({periodLabel})</span>
                                       </p>
                                     )
                                   })}
@@ -1055,7 +1055,7 @@ export default function Dashboard() {
                         {valueData.length > 10 && (
                           <div className="flex justify-center mt-2">
                             <button onClick={() => updateCfg({ showAllHorizontal: !cfg.showAllHorizontal })}
-                              className="px-4 py-1.5 rounded-lg text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 transition">
+                              style={{ background: 'var(--bg-input)' }} className="px-4 py-1.5 rounded-lg text-sm hover:bg-[var(--bg-hover)] text-[color:var(--text-secondary)] transition">
                               {cfg.showAllHorizontal ? 'Свернуть до топ-10' : `Показать все (${valueData.length})`}
                             </button>
                           </div>
@@ -1069,9 +1069,9 @@ export default function Dashboard() {
                     <>
                       <ResponsiveContainer width="100%" height={100 + displayed.length * 45}>
                         <BarChart data={displayed} layout="vertical" barCategoryGap={8} margin={{ right: showLabels ? 60 : 10 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                          <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
-                          <YAxis type="category" dataKey="label" stroke="#9ca3af" tick={{ fontSize: 12 }} width={80} interval={0} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                          <XAxis type="number" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={yFmt} domain={normalize ? [0,100] : undefined} />
+                          <YAxis type="category" dataKey="label" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} width={80} interval={0} />
                           <Tooltip content={tooltipContent} />
                           <Legend wrapperStyle={{ fontSize: 13 }} />
                           {activeMetrics.map(m => (
@@ -1084,7 +1084,7 @@ export default function Dashboard() {
                       {sorted.length > 10 && (
                         <div className="flex justify-center mt-2">
                           <button onClick={() => updateCfg({ showAllHorizontal: !cfg.showAllHorizontal })}
-                            className="px-4 py-1.5 rounded-lg text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 transition">
+                            style={{ background: 'var(--bg-input)' }} className="px-4 py-1.5 rounded-lg text-sm hover:bg-[var(--bg-hover)] text-[color:var(--text-secondary)] transition">
                             {cfg.showAllHorizontal ? 'Свернуть до топ-10' : `Показать все (${sorted.length})`}
                           </button>
                         </div>
@@ -1097,15 +1097,15 @@ export default function Dashboard() {
               }
 
               const renderCompareChart = () => {
-                if (compareData.length === 0) return <p className="text-gray-500 text-center py-10">Нет данных для сравнения</p>
+                if (compareData.length === 0) return <p className="text-[color:var(--text-faint)] text-center py-10">Нет данных для сравнения</p>
                 const xInterval = Math.floor(compareData.length / 10)
                 const compareTt = ({ active, payload, label }: any) => {
                   if (!active || !payload?.length) return null
                   const row = compareData.find(r => r.label === label)
                   return (
-                    <div style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, padding: '10px 14px' }}>
-                      <p style={{ color: '#fff', fontSize: 13, marginBottom: 2 }}>{label}</p>
-                      <p style={{ color: '#6b7280', fontSize: 11, marginBottom: 6 }}>vs {row?._prevLabel}</p>
+                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px' }}>
+                      <p style={{ color: 'var(--text-primary)', fontSize: 13, marginBottom: 2 }}>{label}</p>
+                      <p style={{ color: 'var(--text-faint)', fontSize: 11, marginBottom: 6 }}>vs {row?._prevLabel}</p>
                       {payload.map((entry: any) => {
                         const mKey = entry.dataKey
                         const met = FLEX_METRICS.find(x => x.key === mKey)
@@ -1121,7 +1121,7 @@ export default function Dashboard() {
                             <span style={{ color: abs >= 0 ? '#10b981' : '#ef4444', marginLeft: 6 }}>
                               {sign}{fmtVal(abs)} ({sign}{pct} %)
                             </span>
-                            <span style={{ color: '#6b7280', fontSize: 11 }}> ← {fmtVal(prv)}</span>
+                            <span style={{ color: 'var(--text-faint)', fontSize: 11 }}> ← {fmtVal(prv)}</span>
                           </p>
                         )
                       })}
@@ -1131,15 +1131,15 @@ export default function Dashboard() {
                 return (
                   <ResponsiveContainer width="100%" height={380}>
                     <BarChart data={compareData} margin={{ top: showLabels ? 24 : 4, right: 10, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                      <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 12 }} interval={xInterval} />
-                      <YAxis yAxisId="left" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                      <XAxis dataKey="label" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} interval={xInterval} />
+                      <YAxis yAxisId="left" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
                       {activeMetrics.some(m => m.isSecondary || m.isPercent) && activeMetrics.some(m => !m.isSecondary && !m.isPercent) && (
-                        <YAxis yAxisId="right" orientation="right" stroke="#6b7280" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+                        <YAxis yAxisId="right" orientation="right" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
                       )}
                       <Tooltip content={compareTt} />
                       <Legend wrapperStyle={{ fontSize: 13 }} />
-                      <ReferenceLine yAxisId="left" y={0} stroke="#6b7280" strokeWidth={1.5} />
+                      <ReferenceLine yAxisId="left" y={0} stroke="var(--chart-axis)" strokeWidth={1.5} />
                       {activeMetrics.map(m => (
                         <Bar key={m.key} yAxisId={getAxis(m)} dataKey={m.key} name={m.name} fill={m.color} radius={[4,4,0,0]}>
                           <Cell fill={m.color} />
@@ -1152,14 +1152,14 @@ export default function Dashboard() {
               }
 
               return (
-                <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                <div style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl p-6 border border-[var(--border)]">
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold text-lg mr-2">Аналитика</h3>
                       {cfg.compareMode === 'none' && (
                         <ChartTypeSwitcher value={cfg.chartType} onChange={v => updateCfg({ chartType: v })} />
                       )}
-                      <span className="text-gray-600 text-xs mx-1">|</span>
+                      <span className="text-[color:var(--text-faint)] text-xs mx-1">|</span>
                       {FLEX_METRICS.map(m => (
                         <button key={m.key}
                           onClick={() => {
@@ -1168,8 +1168,8 @@ export default function Dashboard() {
                             if (next.length > 0) updateCfg({ metrics: next })
                           }}
                           style={{
-                            background: cfg.metrics.includes(m.key) ? m.color + '22' : '#374151',
-                            color: cfg.metrics.includes(m.key) ? m.color : '#d1d5db',
+                            background: cfg.metrics.includes(m.key) ? m.color + '22' : 'var(--bg-input)',
+                            color: cfg.metrics.includes(m.key) ? m.color : 'var(--text-secondary)',
                             border: `1px solid ${cfg.metrics.includes(m.key) ? m.color : 'transparent'}`
                           }}
                           className="px-3 py-1.5 rounded text-sm transition">{m.name}
@@ -1177,38 +1177,38 @@ export default function Dashboard() {
                       ))}
                     </div>
                     <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                      <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
                         <input type="checkbox" checked={showLabels} onChange={() => updateCfg({ showLabels: !showLabels })} className="accent-blue-500 w-4 h-4" />
                         Значения
                       </label>
                       {cfg.chartType === 'line' && (
-                        <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
                           <input type="checkbox" checked={showDots} onChange={() => updateCfg({ showDots: !showDots })} className="accent-blue-500 w-4 h-4" />
                           Точки
                         </label>
                       )}
-                      <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: normalize ? '#f59e0b' : '#9ca3af' }}>
+                      <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: normalize ? '#f59e0b' : 'var(--text-muted)' }}>
                         <input type="checkbox" checked={normalize} onChange={() => updateCfg({ normalize: !normalize })} className="accent-amber-500 w-4 h-4" />
                         Норм. шкала
                       </label>
                       {cfg.compareMode === 'none' && (
-                        <div className="flex rounded-lg overflow-hidden border border-gray-600">
+                        <div className="flex rounded-lg overflow-hidden border border-[var(--border)]">
                           {(['chrono', 'value'] as const).map(mode => (
                             <button key={mode} onClick={() => updateCfg({ sortMode: mode })}
-                              className={`px-3 py-1.5 text-xs transition ${cfg.sortMode === mode ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>
+                              className={`px-3 py-1.5 text-xs transition ${cfg.sortMode === mode ? 'bg-blue-600 text-[color:var(--text-primary)]' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] text-[color:var(--text-secondary)]'}`}>
                               {mode === 'chrono' ? 'Хронология' : 'Значение'}
                             </button>
                           ))}
                         </div>
                       )}
-                      <span className="text-gray-600 text-xs mx-1">|</span>
-                      <div className="flex rounded-lg overflow-hidden border border-gray-600">
+                      <span className="text-[color:var(--text-faint)] text-xs mx-1">|</span>
+                      <div className="flex rounded-lg overflow-hidden border border-[var(--border)]">
                         {([
                           { id: 'none', label: 'Обычный' },
                           { id: 'mom',  label: 'Месяц к месяцу' },
                         ] as const).map(m => (
                           <button key={m.id} onClick={() => updateCfg({ compareMode: m.id })}
-                            className={`px-3 py-1.5 text-xs transition ${cfg.compareMode === m.id ? 'bg-violet-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>
+                            className={`px-3 py-1.5 text-xs transition ${cfg.compareMode === m.id ? 'bg-violet-600 text-[color:var(--text-primary)]' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] text-[color:var(--text-secondary)]'}`}>
                             {m.label}
                           </button>
                         ))}
@@ -1250,7 +1250,7 @@ export default function Dashboard() {
                 { key: 'margin',              name: 'Маржа (%)',               color: '#ec4899', isPercent: true, isSecondary: true },
               ]}
               extraControls={
-                <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: normAvgCheck ? '#f59e0b' : '#9ca3af' }}>
+                <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: normAvgCheck ? '#f59e0b' : 'var(--text-muted)' }}>
                   <input type="checkbox" checked={normAvgCheck} onChange={() => setNormAvgCheck(v => !v)} className="accent-amber-500 w-4 h-4" />
                   Норм. шкала
                 </label>
@@ -1279,10 +1279,10 @@ export default function Dashboard() {
         {/* Разбивка */}
         {activeTab === 'breakdown' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <div style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl p-6 border border-[var(--border)]">
               <div className="flex justify-between items-center mb-5">
                 <h3 className="font-semibold text-lg">Доля выручки по магазинам</h3>
-                <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
                   <input type="checkbox" checked={showStorePieLabels} onChange={() => setShowStorePieLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
                   Значения
                 </label>
@@ -1293,7 +1293,7 @@ export default function Dashboard() {
                     label={showStorePieLabels ? ({ payload, percent }) => `${payload.store} ${((percent ?? 0)*100).toFixed(1).replace('.', ',')} %` : false}>
                     {byStore.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(v: any) => fmt(Number(v))} contentStyle={{ background: '#1f2937', border: '1px solid #374151', fontSize: 13 }} labelStyle={{ color: '#fff', fontSize: 13 }} itemStyle={{ color: '#fff', fontSize: 13 }} />
+                  <Tooltip formatter={(v: any) => fmt(Number(v))} contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', fontSize: 13 }} labelStyle={{ color: 'var(--text-primary)', fontSize: 13 }} itemStyle={{ color: 'var(--text-primary)', fontSize: 13 }} />
                   <Legend wrapperStyle={{ fontSize: 13 }} />
                 </PieChart>
               </ResponsiveContainer>
@@ -1328,7 +1328,7 @@ export default function Dashboard() {
             return obj
           })
 
-          const ttProps = { contentStyle: { background: '#1f2937', border: '1px solid #374151', fontSize: 13 }, labelStyle: { color: '#fff', fontSize: 13 }, itemStyle: { color: '#fff', fontSize: 13 } }
+          const ttProps = { contentStyle: { background: 'var(--bg-card)', border: '1px solid var(--border)', fontSize: 13 }, labelStyle: { color: 'var(--text-primary)', fontSize: 13 }, itemStyle: { color: 'var(--text-primary)', fontSize: 13 } }
           const metFmt = STORE_METRICS.find(m => m.key === storeTrendMetric)?.fmt || fmtNum
           const xInterval = Math.floor(chartData.length / 10)
 
@@ -1336,9 +1336,9 @@ export default function Dashboard() {
             if (storeTrendType === 'line') return (
               <ResponsiveContainer width="100%" height={380}>
                 <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 11 }} interval={xInterval} />
-                  <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                  <XAxis dataKey="label" stroke="var(--chart-axis)" tick={{ fontSize: 11 }} interval={xInterval} />
+                  <YAxis stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
                   <Tooltip formatter={(v: any) => metFmt(Number(v))} {...ttProps} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   {visibleStores.map((s, i) => (
@@ -1359,9 +1359,9 @@ export default function Dashboard() {
               return (
                 <ResponsiveContainer width="100%" height={100 + totalData.length * 45}>
                   <BarChart data={totalData} layout="vertical" barCategoryGap={8}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
-                    <YAxis type="category" dataKey="store" stroke="#9ca3af" tick={{ fontSize: 12 }} width={80} interval={0} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                    <XAxis type="number" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+                    <YAxis type="category" dataKey="store" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} width={80} interval={0} />
                     <Tooltip formatter={(v: any) => metFmt(Number(v))} {...ttProps} />
                     <Bar dataKey="value" name={STORE_METRICS.find(m => m.key === storeTrendMetric)?.label || storeTrendMetric} radius={[0,6,6,0]}>
                       {totalData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
@@ -1374,9 +1374,9 @@ export default function Dashboard() {
             return (
               <ResponsiveContainer width="100%" height={380}>
                 <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 11 }} interval={xInterval} />
-                  <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                  <XAxis dataKey="label" stroke="var(--chart-axis)" tick={{ fontSize: 11 }} interval={xInterval} />
+                  <YAxis stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
                   <Tooltip formatter={(v: any) => metFmt(Number(v))} {...ttProps} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   {visibleStores.map((s, i) => (
@@ -1392,15 +1392,15 @@ export default function Dashboard() {
           return (
             <div className="space-y-6">
               {/* Панель управления */}
-              <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
+              <div style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl p-5 border border-[var(--border)]">
                 <div className="flex flex-wrap gap-4">
                   {/* Метрика */}
                   <div>
-                    <p className="text-xs text-gray-400 mb-2">Показатель</p>
+                    <p className="text-xs text-[color:var(--text-muted)] mb-2">Показатель</p>
                     <div className="flex flex-wrap gap-1">
                       {STORE_METRICS.map(m => (
                         <button key={m.key} onClick={() => setStoreTrendMetric(m.key)}
-                          className={`px-3 py-1.5 rounded text-sm transition ${storeTrendMetric === m.key ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>
+                          className={`px-3 py-1.5 rounded text-sm transition ${storeTrendMetric === m.key ? 'bg-blue-600 text-[color:var(--text-primary)]' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] text-[color:var(--text-secondary)]'}`}>
                           {m.label}
                         </button>
                       ))}
@@ -1408,17 +1408,17 @@ export default function Dashboard() {
                   </div>
                   {/* Тип графика */}
                   <div>
-                    <p className="text-xs text-gray-400 mb-2">Тип графика</p>
+                    <p className="text-xs text-[color:var(--text-muted)] mb-2">Тип графика</p>
                     <ChartTypeSwitcher value={storeTrendType} onChange={setStoreTrendType} />
                   </div>
                   {/* Опции */}
                   <div className="flex items-end gap-3">
-                    <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                    <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
                       <input type="checkbox" checked={storeTrendShowLabels} onChange={() => setStoreTrendShowLabels(v => !v)} className="accent-blue-500 w-4 h-4" />
                       Значения
                     </label>
                     {storeTrendType === 'line' && (
-                      <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                      <label className="flex items-center gap-2 text-sm text-[color:var(--text-secondary)] cursor-pointer">
                         <input type="checkbox" checked={storeTrendShowDots} onChange={() => setStoreTrendShowDots(v => !v)} className="accent-blue-500 w-4 h-4" />
                         Точки
                       </label>
@@ -1427,13 +1427,13 @@ export default function Dashboard() {
                 </div>
                 {/* Выбор магазинов */}
                 <div className="mt-4">
-                  <p className="text-xs text-gray-400 mb-2">Магазины <span className="text-gray-600">(все по умолчанию)</span></p>
+                  <p className="text-xs text-[color:var(--text-muted)] mb-2">Магазины <span className="text-[color:var(--text-faint)]">(все по умолчанию)</span></p>
                   <div className="flex flex-wrap gap-1">
                     <button onClick={() => setStoreTrendSelectedStores([])}
-                      className={`px-3 py-1 rounded text-xs transition ${storeTrendSelectedStores.length === 0 ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-400'}`}>
+                      className={`px-3 py-1 rounded text-xs transition ${storeTrendSelectedStores.length === 0 ? 'bg-blue-600 text-[color:var(--text-primary)]' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] text-[color:var(--text-muted)]'}`}>
                       Все
                     </button>
-                    <span className="text-gray-600 text-xs mx-1 self-center">|</span>
+                    <span className="text-[color:var(--text-faint)] text-xs mx-1 self-center">|</span>
                     {storeTrend.stores.map((s, i) => {
                       const active = storeTrendSelectedStores.includes(s)
                       return (
@@ -1441,8 +1441,8 @@ export default function Dashboard() {
                           prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
                         )}
                           style={{
-                            background: active ? COLORS[i % COLORS.length] + '33' : '#374151',
-                            color: active ? COLORS[i % COLORS.length] : '#d1d5db',
+                            background: active ? COLORS[i % COLORS.length] + '33' : 'var(--bg-input)',
+                            color: active ? COLORS[i % COLORS.length] : 'var(--text-secondary)',
                             border: `1px solid ${active ? COLORS[i % COLORS.length] : 'transparent'}`
                           }}
                           className="px-3 py-1 rounded text-xs transition">
@@ -1455,7 +1455,7 @@ export default function Dashboard() {
               </div>
 
               {/* График */}
-              <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+              <div style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl p-6 border border-[var(--border)]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-semibold text-lg">
                     {STORE_METRICS.find(m => m.key === storeTrendMetric)?.label} по магазинам
@@ -1470,7 +1470,7 @@ export default function Dashboard() {
                   }} title="Скачать" />
                 </div>
                 {storeTrend.periods.length === 0
-                  ? <p className="text-gray-500 text-center py-10">Нет данных</p>
+                  ? <p className="text-[color:var(--text-faint)] text-center py-10">Нет данных</p>
                   : renderStoreChart()
                 }
               </div>
@@ -1481,48 +1481,48 @@ export default function Dashboard() {
         {/* Таблица */}
         {activeTab === 'table' && (
           <div className="space-y-4">
-            <div className="bg-gray-800 rounded-xl border border-gray-700">
+            <div style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl border border-[var(--border)]">
               <button onClick={() => setFiltersOpen(v => !v)}
-                className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium hover:bg-gray-700/50 transition rounded-xl">
+                className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium hover:bg-[var(--bg-hover)]/50 transition rounded-xl">
                 <div className="flex items-center gap-3">
                   <span>🔍 Фильтры</span>
-                  {activeFilterCount > 0 && <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">{activeFilterCount}</span>}
+                  {activeFilterCount > 0 && <span className="bg-blue-600 text-[color:var(--text-primary)] text-xs px-2 py-0.5 rounded-full">{activeFilterCount}</span>}
                 </div>
-                <span className="text-gray-400">{filtersOpen ? '▲' : '▼'}</span>
+                <span className="text-[color:var(--text-muted)]">{filtersOpen ? '▲' : '▼'}</span>
               </button>
               {filtersOpen && (
-                <div className="px-5 pb-5 border-t border-gray-700 pt-4 space-y-5">
+                <div className="px-5 pb-5 border-t border-[var(--border)] pt-4 space-y-5">
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Поиск по магазину</label>
+                    <label className="text-xs text-[color:var(--text-muted)] mb-1 block">Поиск по магазину</label>
                     <input type="text" placeholder="Введите название..." value={filterSearch}
                       onChange={e => { setFilterSearch(e.target.value); setPage(1) }}
-                      className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                      style={{ background: 'var(--bg-input)' }} className="w-full text-[color:var(--text-primary)] rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div>
-                      <label className="text-xs text-gray-400 mb-2 block">Год</label>
+                      <label className="text-xs text-[color:var(--text-muted)] mb-2 block">Год</label>
                       <div className="flex flex-wrap gap-1">
                         {years.map(y => (
                           <button key={y} onClick={() => { setFilterYears(prev => prev.includes(y) ? prev.filter(x => x !== y) : [...prev, y]); setPage(1) }}
-                            className={`px-3 py-1 rounded text-sm transition ${filterYears.includes(y) ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>
+                            className={`px-3 py-1 rounded text-sm transition ${filterYears.includes(y) ? 'bg-blue-600 text-[color:var(--text-primary)]' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] text-[color:var(--text-secondary)]'}`}>
                             {y}
                           </button>
                         ))}
                       </div>
                     </div>
                     <div>
-                      <label className="text-xs text-gray-400 mb-2 block">Месяц</label>
+                      <label className="text-xs text-[color:var(--text-muted)] mb-2 block">Месяц</label>
                       <div className="grid grid-cols-4 gap-1">
                         {MONTHS.map((m, i) => (
                           <button key={i} onClick={() => { setFilterMonths(prev => prev.includes(i+1) ? prev.filter(x => x !== i+1) : [...prev, i+1]); setPage(1) }}
-                            className={`px-2 py-1 rounded text-xs transition ${filterMonths.includes(i+1) ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}>
+                            className={`px-2 py-1 rounded text-xs transition ${filterMonths.includes(i+1) ? 'bg-blue-600 text-[color:var(--text-primary)]' : 'bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] text-[color:var(--text-secondary)]'}`}>
                             {m}
                           </button>
                         ))}
                       </div>
                     </div>
                     <div className="relative">
-                      <label className="text-xs text-gray-400 mb-2 block">Магазин</label>
+                      <label className="text-xs text-[color:var(--text-muted)] mb-2 block">Магазин</label>
                       <StoreDropdown stores={allStores} selected={filterStores} onChange={s => { setFilterStores(s); setPage(1) }} />
                     </div>
                   </div>
@@ -1552,19 +1552,19 @@ export default function Dashboard() {
               )}
             </div>
 
-            <div className="bg-gray-800 rounded-xl border border-gray-700">
-              <div className="p-3 border-b border-gray-700 flex justify-between items-center">
-                <span className="text-gray-400 text-sm">Найдено записей: <span className="text-white font-medium">{total}</span></span>
+            <div style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }} className="rounded-xl border border-[var(--border)]">
+              <div className="p-3 border-b border-[var(--border)] flex justify-between items-center">
+                <span className="text-[color:var(--text-muted)] text-sm">Найдено записей: <span className="text-[color:var(--text-primary)] font-medium">{total}</span></span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-700/50">
+                  <thead style={{ background: 'var(--bg-input)' }} className="/50">
                     <tr>
                       {visibleColumns.map(col => (
                         <SortTh key={col.key} col={col.key} label={col.label} sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                       ))}
                       {extraFields.map(f => (
-                        <th key={f.key} className="px-4 py-3 text-left text-gray-400 font-medium whitespace-nowrap">{f.name}</th>
+                        <th key={f.key} className="px-4 py-3 text-left text-[color:var(--text-muted)] font-medium whitespace-nowrap">{f.name}</th>
                       ))}
                     </tr>
                   </thead>
@@ -1573,8 +1573,8 @@ export default function Dashboard() {
                       const margin = row.revenue > 0 ? (row.grossProfit / row.revenue) * 100 : 0
                       const avgCheck = row.checks > 0 ? row.revenue / row.checks : 0
                       const cellMap: Record<string, React.ReactNode> = {
-                        year:        <td key="year"        className="px-4 py-3 text-gray-400">{row.year}</td>,
-                        month:       <td key="month"       className="px-4 py-3 text-gray-400">{MONTHS[row.month - 1]}</td>,
+                        year:        <td key="year"        className="px-4 py-3 text-[color:var(--text-muted)]">{row.year}</td>,
+                        month:       <td key="month"       className="px-4 py-3 text-[color:var(--text-muted)]">{MONTHS[row.month - 1]}</td>,
                         store:       <td key="store"       className="px-4 py-3 text-blue-400 font-medium">{row.store}</td>,
                         revenue:     <td key="revenue"     className="px-4 py-3 text-blue-400">{fmt(row.revenue)}</td>,
                         grossProfit: <td key="grossProfit" className="px-4 py-3 text-green-400">{fmt(row.grossProfit ?? 0)}</td>,
@@ -1584,7 +1584,7 @@ export default function Dashboard() {
                         checks:      <td key="checks"      className="px-4 py-3 text-cyan-400">{fmtNum(row.checks ?? 0)}</td>,
                       }
                       return (
-                        <tr key={i} className="hover:bg-gray-700/30 transition">
+                        <tr key={i} className="hover:bg-[var(--bg-hover)]/30 transition">
                           {visibleColumns.map(col => cellMap[col.key])}
                           {extraFields.map(f => (
                             <td key={f.key} className="px-4 py-3 text-orange-400">
@@ -1595,17 +1595,17 @@ export default function Dashboard() {
                       )
                     })}
                     {table.length === 0 && (
-                      <tr><td colSpan={9 + extraFields.length} className="px-4 py-10 text-center text-gray-500">Нет данных по выбранным фильтрам</td></tr>
+                      <tr><td colSpan={9 + extraFields.length} className="px-4 py-10 text-center text-[color:var(--text-faint)]">Нет данных по выбранным фильтрам</td></tr>
                     )}
                   </tbody>
                 </table>
               </div>
-              <div className="p-4 flex justify-between items-center border-t border-gray-700">
+              <div className="p-4 flex justify-between items-center border-t border-[var(--border)]">
                 <button disabled={page === 1} onClick={() => setPage(p => p-1)}
-                  className="px-4 py-2 bg-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-600 transition text-sm">← Назад</button>
-                <span className="text-gray-400 text-sm">Стр. {page} из {Math.max(1, Math.ceil(total/15))}</span>
+                  style={{ background: 'var(--bg-input)' }} className="px-4 py-2 rounded-lg disabled:opacity-50 hover:bg-[var(--bg-hover)] transition text-sm">← Назад</button>
+                <span className="text-[color:var(--text-muted)] text-sm">Стр. {page} из {Math.max(1, Math.ceil(total/15))}</span>
                 <button disabled={page >= Math.ceil(total/15)} onClick={() => setPage(p => p+1)}
-                  className="px-4 py-2 bg-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-600 transition text-sm">Вперёд →</button>
+                  style={{ background: 'var(--bg-input)' }} className="px-4 py-2 rounded-lg disabled:opacity-50 hover:bg-[var(--bg-hover)] transition text-sm">Вперёд →</button>
               </div>
             </div>
           </div>
