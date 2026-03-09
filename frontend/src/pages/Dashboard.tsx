@@ -105,7 +105,7 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
 
   const chartMargin = showLabels
     ? chartType === 'bar-horizontal' ? { right: 60 } : { top: 24 }
-    : {}
+    : chartType === 'bar-horizontal' ? { right: 10 } : {}
   const xInterval = Math.floor(data.length / 10)
 
   return (
@@ -135,7 +135,7 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
       </div>
       <ResponsiveContainer width="100%" height={dynamicHeight}>
         {chartType === 'line' ? (
-          <LineChart data={data}>
+          <LineChart data={data} margin={chartMargin}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis dataKey={xKey} stroke="var(--chart-axis)" tick={{ fontSize: 12 }} interval={xInterval} />
             <YAxis stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
@@ -154,7 +154,7 @@ function SingleMetricChart({ title, data, dataKey, xKey, color, formatTooltip, f
             <Bar dataKey={dataKey} name={title} fill={color} radius={[5,5,0,0]}>{labelEl}</Bar>
           </BarChart>
         ) : (
-          <BarChart data={preparedData} layout="vertical" barSize={barSize} barCategoryGap={8}>
+          <BarChart data={preparedData} layout="vertical" barSize={barSize} barCategoryGap={8} margin={chartMargin}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis type="number" stroke="var(--chart-axis)" tick={{ fontSize: 12 }} tickFormatter={v => fmtShort(v)} />
             <YAxis type="category" dataKey={xKey} stroke="var(--chart-axis)" tick={{ fontSize: 12 }} width={80} interval={0} />
